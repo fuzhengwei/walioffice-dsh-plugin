@@ -1,0 +1,15 @@
+{
+  "name": "walioffice-dsh-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WaLiOffice 办公工具套件 — DeepSeek Harness (DSH) 插件",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf packages/extensions/*/lib packages/extensions/*/*.tsbuildinfo"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

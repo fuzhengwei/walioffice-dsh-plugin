@@ -1,0 +1,16 @@
+{
+  "devDependencies": {
+    "@walioffice/dsh-office": "workspace:*",
+    "@walioffice/dsh-office-bundle": "workspace:*",
+    "@walioffice/dsh-office-render-docx": "workspace:*",
+    "@walioffice/dsh-office-render-pptx": "workspace:*",
+    "@walioffice/dsh-office-render-xlsx": "workspace:*",
+    "@walioffice/dsh-tool-chart": "workspace:*",
+    "@walioffice/dsh-tool-doc": "workspace:*",
+    "@walioffice/dsh-tool-drawio": "workspace:*",
+    "@walioffice/dsh-tool-image": "workspace:*",
+    "@walioffice/dsh-tool-ppt": "workspace:*",
+    "@walioffice/dsh-tool-sheet": "workspace:*",
+    "@walioffice/dsh-tool-video": "workspace:*"
+  }
+}

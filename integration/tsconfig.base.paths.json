@@ -1,0 +1,7 @@
+{
+  "paths": {
+    "@walioffice/*": [
+      "./packages/extensions/walioffice-*/src"
+    ]
+  }
+}

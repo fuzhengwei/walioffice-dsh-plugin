@@ -1,0 +1,28 @@
+# Build artifacts
+lib/
+node_modules/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# Cache
+.cache/
+.pnpm-store/
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Temporary
+tmp/

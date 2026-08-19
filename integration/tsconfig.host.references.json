@@ -1,0 +1,16 @@
+{
+  "references": [
+    { "path": "./packages/extensions/walioffice-dsh-office" },
+    { "path": "./packages/extensions/walioffice-dsh-office-bundle" },
+    { "path": "./packages/extensions/walioffice-dsh-office-render-docx" },
+    { "path": "./packages/extensions/walioffice-dsh-office-render-pptx" },
+    { "path": "./packages/extensions/walioffice-dsh-office-render-xlsx" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-chart" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-doc" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-drawio" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-image" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-ppt" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-sheet" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-video" }
+  ]
+}
