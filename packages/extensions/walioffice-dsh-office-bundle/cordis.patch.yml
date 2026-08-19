@@ -1,0 +1,27 @@
+# WaLiOffice DSH bundle patch — loads office service + 8 tool plugins
+# This patch is applied as ONE insert over the profile root.
+
+- insert:
+    - id: walioffice-office
+      name: '@walioffice/dsh-office'
+
+    - id: walioffice-ppt
+      name: '@walioffice/dsh-tool-ppt'
+
+    - id: walioffice-doc
+      name: '@walioffice/dsh-tool-doc'
+
+    - id: walioffice-sheet
+      name: '@walioffice/dsh-tool-sheet'
+
+    - id: walioffice-chart
+      name: '@walioffice/dsh-tool-chart'
+
+    - id: walioffice-drawio
+      name: '@walioffice/dsh-tool-drawio'
+
+    - id: walioffice-image
+      name: '@walioffice/dsh-tool-image'
+
+    - id: walioffice-video
+      name: '@walioffice/dsh-tool-video'

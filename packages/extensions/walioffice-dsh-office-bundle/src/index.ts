@@ -39,7 +39,6 @@ import { apply as applyVideo, name as nameVideo, inject as injectVideo } from '@
 export const name = 'walioffice-bundle'
 export const inject = [
   'tools',
-  'office',
   'llm',
   ...new Set([
     ...injectPpt, ...injectDoc, ...injectSheet,
@@ -48,33 +47,8 @@ export const inject = [
 ]
 
 export function apply(ctx: Context): void {
-  // Register office service
-  // In a real DSH setup, this would be registered by dsh-office package
-  // For now, we create a simple implementation
-  if (!(ctx as unknown as Record<string, unknown>).office) {
-    const scratchpad = new Map<string, unknown>()
-    const artifacts: unknown[] = []
-    
-    ;(ctx as unknown as Record<string, unknown>).office = {
-      emitProgress(phase: string, step: string, _detail: string) {
-        // Emit through session events (best effort)
-        // Best-effort progress notification
-        try { (ctx as any).emit?.('session/event', { type: 'office/progress', data: { phase, step, timestamp: Date.now() } }) } catch { /* best effort */ }
-      },
-      getUserId() {
-        return process.env.USER || 'default'
-      },
-      getScratchpad(key: string) {
-        return scratchpad.get(key)
-      },
-      setScratchpad(key: string, value: unknown) {
-        scratchpad.set(key, value)
-      },
-      getPriorArtifacts() {
-        return artifacts
-      },
-    }
-  }
+  // The 'office' service is provided by @walioffice/dsh-office plugin,
+  // which is inserted before this bundle's tool plugins in cordis.patch.yml.
 
   // Register all tools
   applyPpt(ctx)

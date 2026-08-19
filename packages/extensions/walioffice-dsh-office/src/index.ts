@@ -322,3 +322,43 @@ export interface OfficeService extends Service {
   /** Get prior artifacts */
   getPriorArtifacts(): OfficeArtifact[]
 }
+
+// ── Cordis plugin: provides the 'office' service ─────────────────────────────
+
+export const name = 'walioffice-office'
+export const inject = ['llm']
+
+import { Service as CordisService } from '@deepseek-ai/cordis'
+
+class OfficeServiceImpl extends CordisService {
+  private scratchpad = new Map<string, unknown>()
+  private artifacts: OfficeArtifact[] = []
+
+  constructor(ctx: any) {
+    super(ctx, 'office')
+  }
+
+  emitProgress(phase: string, step: string, _detail: string): void {
+    try { (this.ctx as any).emit?.('session/event', { type: 'office/progress', data: { phase, step, timestamp: Date.now() } }) } catch { /* best effort */ }
+  }
+
+  getUserId(): string {
+    return process.env.USER || 'default'
+  }
+
+  getScratchpad(key: string): JsonValue | undefined {
+    return this.scratchpad.get(key) as JsonValue | undefined
+  }
+
+  setScratchpad(key: string, value: JsonValue): void {
+    this.scratchpad.set(key, value)
+  }
+
+  getPriorArtifacts(): OfficeArtifact[] {
+    return this.artifacts
+  }
+}
+
+export function apply(ctx: any): void {
+  ctx.plugin(OfficeServiceImpl)
+}
