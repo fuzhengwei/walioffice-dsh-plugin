@@ -1,10 +1,9 @@
 /**
- * WaLiOffice DSH Plugin Bundle
+ * WaLiOffice DSH Plugin — unified entry point.
  * 
- * Loads all WaLiOffice office productivity tools as DSH plugins.
- * This is the one-stop entry point — add to cordis.yml to enable all tools.
+ * Registers the office service + all office productivity tools as a single plugin.
  * 
- * Tools registered:
+ * Tools registered (10):
  * - ppt_plan / ppt_generate — PPT 大纲规划 + 完整生成
  * - doc_generate / md_generate — Word 文档 + Markdown 文档
  * - sheet_generate — Excel 表格
@@ -27,30 +26,26 @@
 import type { Context } from '@deepseek-ai/cordis'
 import '@walioffice/dsh-office' // for Context augmentation
 
-// Import tool plugins
-import { apply as applyPpt, name as namePpt, inject as injectPpt } from '@walioffice/dsh-tool-ppt'
-import { apply as applyDoc, name as nameDoc, inject as injectDoc } from '@walioffice/dsh-tool-doc'
-import { apply as applySheet, name as nameSheet, inject as injectSheet } from '@walioffice/dsh-tool-sheet'
-import { apply as applyChart, name as nameChart, inject as injectChart } from '@walioffice/dsh-tool-chart'
-import { apply as applyDrawio, name as nameDrawio, inject as injectDrawio } from '@walioffice/dsh-tool-drawio'
-import { apply as applyImage, name as nameImage, inject as injectImage } from '@walioffice/dsh-tool-image'
-import { apply as applyVideo, name as nameVideo, inject as injectVideo } from '@walioffice/dsh-tool-video'
+// Import office service registration
+import { apply as applyOffice } from '@walioffice/dsh-office'
 
-export const name = 'walioffice-bundle'
-export const inject = [
-  'tools',
-  'llm',
-  ...new Set([
-    ...injectPpt, ...injectDoc, ...injectSheet,
-    ...injectChart, ...injectDrawio, ...injectImage, ...injectVideo,
-  ]),
-]
+// Import tool plugins
+import { apply as applyPpt } from '@walioffice/dsh-tool-ppt'
+import { apply as applyDoc } from '@walioffice/dsh-tool-doc'
+import { apply as applySheet } from '@walioffice/dsh-tool-sheet'
+import { apply as applyChart } from '@walioffice/dsh-tool-chart'
+import { apply as applyDrawio } from '@walioffice/dsh-tool-drawio'
+import { apply as applyImage } from '@walioffice/dsh-tool-image'
+import { apply as applyVideo } from '@walioffice/dsh-tool-video'
+
+export const name = 'walioffice'
+export const inject = ['tools', 'llm']
 
 export function apply(ctx: Context): void {
-  // The 'office' service is provided by @walioffice/dsh-office plugin,
-  // which is inserted before this bundle's tool plugins in cordis.patch.yml.
+  // 1. Register the office service first
+  applyOffice(ctx)
 
-  // Register all tools
+  // 2. Register all tools (they use ctx.office which is now available)
   applyPpt(ctx)
   applyDoc(ctx)
   applySheet(ctx)
@@ -59,6 +54,5 @@ export function apply(ctx: Context): void {
   applyImage(ctx)
   applyVideo(ctx)
 
-  // Log registration
-  console.log('[WaLiOffice] Registered 9 office tools: ppt_plan, ppt_generate, doc_generate, md_generate, sheet_generate, chart_generate, drawio_generate, image_prompt, video_generate, video_storyboard')
+  console.log('[WaLiOffice] Registered 10 office tools: ppt_plan, ppt_generate, doc_generate, md_generate, sheet_generate, chart_generate, drawio_generate, image_prompt, video_generate, video_storyboard')
 }
