@@ -27,6 +27,67 @@ export interface PresentationPlan {
   slides: SlidePlan[]
 }
 
+function compactPptTitle(topic: string): string {
+  const normalized = topic.replace(/\s+/g, ' ').trim()
+  const head = normalized.split(/[：:。！？]/)[0]?.trim() || normalized
+  return head.slice(0, 36) || 'WaLiOffice 演示文稿'
+}
+
+function cleanSlideText(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value.replace(/\s+/g, ' ').trim() : fallback
+}
+
+function isPlaceholderTitle(value: string): boolean {
+  return ['title', 'section', 'content', 'slide', 'slide title', '页标题', '章节标题', '页面标题'].includes(value.trim().toLowerCase())
+}
+
+export function fallbackPlan(topic: string): PresentationPlan {
+  const title = compactPptTitle(topic)
+  return {
+    title,
+    slides: [
+      { title, layout: 'title', goal: '明确汇报主题与核心目标', visual: '封面页', points: [`围绕“${title}”展开结构化汇报`] },
+      { title: '背景与目标', layout: 'section', goal: '说明为什么做、要解决什么问题', visual: '背景与目标页', points: ['明确现状与业务背景', '统一本次汇报的目标和范围'] },
+      { title: '核心问题与判断', layout: 'content', goal: '提炼影响结果的关键问题', visual: '问题卡片与重点数据', points: ['梳理当前最重要的矛盾与挑战', '区分事实、影响和需要决策的事项', '建立后续方案的判断依据'] },
+      { title: '方案框架与重点动作', layout: 'content', goal: '展示整体方案和执行重点', visual: '方案框架图与任务列表', points: ['按优先级拆分核心工作模块', '明确角色分工、资源和交付结果', '形成可落地的协作机制'] },
+      { title: '实施路径与保障', layout: 'content', goal: '说明推进节奏和风险控制', visual: '时间轴与风险矩阵', points: ['采用准备、执行、检查、优化的推进节奏', '设置关键节点、验收标准和反馈机制', '提前准备风险应对和资源备选方案'] },
+      { title: '结论与下一步', layout: 'content', goal: '收束结论并明确行动安排', visual: '结论页与行动清单', points: ['确认核心结论和优先级', '落实负责人、时间节点和交付标准', '安排首轮检查并持续复盘优化'] },
+    ],
+  }
+}
+
+export function normalizePresentationPlan(value: unknown, topic: string): PresentationPlan {
+  if (typeof value !== 'object' || value === null) throw new Error('LLM 返回的 PPT 大纲格式不正确')
+  const source = value as { title?: unknown; slides?: unknown }
+  if (!Array.isArray(source.slides)) throw new Error('LLM 返回的 PPT 大纲格式不正确')
+  if (source.slides.some(item => {
+    const slide = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+    return isPlaceholderTitle(cleanSlideText(slide.title, ''))
+  })) throw new Error('LLM 返回了占位 PPT 大纲')
+
+  const slides = source.slides.map((item, index): SlidePlan => {
+    const slide = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+    const rawLayout = cleanSlideText(slide.layout, index === 0 ? 'title' : 'content')
+    const layout = rawLayout === 'title' || rawLayout === 'section' || rawLayout === 'two-column' ? rawLayout : 'content'
+    const rawPoints = Array.isArray(slide.points) ? slide.points.map(item => cleanSlideText(item, '')).filter(Boolean) : []
+    return {
+      title: cleanSlideText(slide.title, `第 ${index + 1} 页`),
+      layout,
+      goal: cleanSlideText(slide.goal, '说明本页的核心信息'),
+      visual: cleanSlideText(slide.visual, layout === 'title' ? '封面页' : '要点列表'),
+      points: rawPoints.length > 0 ? rawPoints.slice(0, 4) : ['补充本页核心信息', '说明关键依据或行动建议'],
+    }
+  }).filter(slide => slide.title.trim())
+
+  if (slides.length < 3) throw new Error('LLM 返回的 PPT 大纲页数不足')
+  const rawTitle = cleanSlideText(source.title, '')
+  if (isPlaceholderTitle(rawTitle)) throw new Error('LLM 返回了占位 PPT 标题')
+  return {
+    title: rawTitle && rawTitle.length <= 48 && !rawTitle.includes(topic.trim()) ? rawTitle : compactPptTitle(topic),
+    slides: slides.slice(0, 10),
+  }
+}
+
 // ── Tool definition ─────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `你是资深演示文稿策划。请规划一份可以直接拿去汇报的 PPT 大纲。
@@ -98,16 +159,18 @@ export function apply(ctx: Context): void {
       const office = resolveOfficeService(ctx)
       office.emitProgress('running', '规划 PPT 大纲', `正在为《${topic}》规划大纲...`)
 
-      const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
-      const plan = json as unknown as PresentationPlan
-
-      // Validate
-      if (!plan.title || !Array.isArray(plan.slides) || plan.slides.length === 0) {
-        throw new Error('LLM 返回的 PPT 大纲格式不正确')
+      let plan: PresentationPlan
+      try {
+        const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
+        plan = normalizePresentationPlan(json, topic)
+      } catch (err) {
+        office.emitProgress('running', '使用 PPT 模板兜底', 'LLM 未返回可解析大纲，已使用内置 6 页结构继续生成。')
+        plan = fallbackPlan(topic)
+        void err
       }
 
       // Store in scratchpad for ppt_generate
-      office.setScratchpad('ppt_plan', json)
+      office.setScratchpad('ppt_plan', plan as any)
 
       return {
         title: plan.title,

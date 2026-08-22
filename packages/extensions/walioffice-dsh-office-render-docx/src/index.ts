@@ -60,16 +60,16 @@ function buildParagraphs(text: string): Paragraph[] {
   
   for (const part of parts) {
     if (part.startsWith('**') && part.endsWith('**')) {
-      runs.push(new TextRun({ text: part.slice(2, -2), bold: true }))
+      runs.push(new TextRun({ text: part.slice(2, -2), bold: true, font: 'Microsoft YaHei', size: 22 }))
     } else if (part.startsWith('*') && part.endsWith('*')) {
-      runs.push(new TextRun({ text: part.slice(1, -1), italics: true }))
+      runs.push(new TextRun({ text: part.slice(1, -1), italics: true, font: 'Microsoft YaHei', size: 22 }))
     } else if (part) {
-      runs.push(new TextRun({ text: part }))
+      runs.push(new TextRun({ text: part, font: 'Microsoft YaHei', size: 22 }))
     }
   }
   
   if (runs.length > 0) {
-    result.push(new Paragraph({ children: runs }))
+    result.push(new Paragraph({ children: runs, spacing: { after: 180, line: 300 } }))
   }
   
   return result
@@ -82,8 +82,9 @@ function buildTable(table: DocTable): Table {
     tableHeader: true,
     children: table.headers.map(h => new TableCell({
       children: [new Paragraph({
-        children: [new TextRun({ text: h, bold: true })],
+        children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', font: 'Microsoft YaHei', size: 20 })],
         alignment: AlignmentType.CENTER,
+        spacing: { after: 0 },
       })],
       shading: { fill: '2563EB' },
     })),
@@ -91,7 +92,7 @@ function buildTable(table: DocTable): Table {
 
   const dataRows = table.rows.map(row => new TableRow({
     children: row.map(cell => new TableCell({
-      children: [new Paragraph({ children: [new TextRun({ text: cell })] })],
+      children: [new Paragraph({ children: [new TextRun({ text: cell, font: 'Microsoft YaHei', size: 20 })], spacing: { after: 0, line: 260 } })],
     })),
   }))
 
@@ -116,19 +117,20 @@ export async function renderDocx(ctx: Context, doc: DocOutput): Promise<string> 
 
   // Title
   children.push(new Paragraph({
-    children: [new TextRun({ text: doc.title, bold: true, size: 36 })],
+    children: [new TextRun({ text: doc.title, bold: true, color: '1E3A8A', font: 'Microsoft YaHei', size: 32 })],
     heading: HeadingLevel.TITLE,
     alignment: AlignmentType.CENTER,
-    spacing: { after: 400 },
+    spacing: { after: 420, line: 360 },
   }))
 
   // Sections
   for (const section of doc.sections) {
     // Heading
     children.push(new Paragraph({
-      children: [new TextRun({ text: section.heading, bold: true })],
+      children: [new TextRun({ text: section.heading, bold: true, color: section.heading_level === 1 ? '1E3A8A' : '334155', font: 'Microsoft YaHei', size: section.heading_level === 1 ? 28 : 24 })],
       heading: headingLevel(section.heading_level),
-      spacing: { before: 300, after: 200 },
+      spacing: { before: 360, after: 180, line: 320 },
+      keepNext: true,
     }))
 
     // Paragraphs
@@ -139,9 +141,9 @@ export async function renderDocx(ctx: Context, doc: DocOutput): Promise<string> 
     // Bullets
     for (const bullet of section.bullets) {
       children.push(new Paragraph({
-        children: [new TextRun({ text: bullet })],
+        children: [new TextRun({ text: bullet, font: 'Microsoft YaHei', size: 22 })],
         bullet: { level: 0 },
-        spacing: { after: 80 },
+        spacing: { after: 100, line: 280 },
       }))
     }
 
@@ -157,7 +159,11 @@ export async function renderDocx(ctx: Context, doc: DocOutput): Promise<string> 
     title: doc.title,
     description: doc.format,
     sections: [{
-      properties: {},
+      properties: {
+        page: {
+          margin: { top: 1080, right: 1200, bottom: 1080, left: 1200 },
+        },
+      },
       children,
     }],
   })

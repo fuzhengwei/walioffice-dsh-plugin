@@ -24,6 +24,7 @@ export interface Palette {
 
 export interface RenderSlide {
   layout: string
+  background?: string
   elements: RenderSlideElement[]
 }
 
@@ -41,6 +42,7 @@ export interface RenderSlideElement {
     color: string
     bold?: boolean
     align?: 'left' | 'center' | 'right'
+    valign?: 'top' | 'middle' | 'bottom'
   }
   table?: {
     x: number; y: number; w: number
@@ -70,6 +72,15 @@ function alignType(align?: string): PptxGenJS.HAlign {
   return (align ?? 'left') as PptxGenJS.HAlign
 }
 
+function valignType(valign?: string): PptxGenJS.VAlign {
+  return (valign ?? 'top') as PptxGenJS.VAlign
+}
+
+function colorValue(color: string | undefined, fallback: string): string {
+  const value = (color || fallback).replace('#', '').trim()
+  return /^[0-9a-f]{6}$/i.test(value) ? value : fallback
+}
+
 // ── Render ──────────────────────────────────────────────────────────────────
 
 /**
@@ -88,9 +99,17 @@ export async function renderPptx(ctx: Context, req: RenderRequest): Promise<stri
   pptx.author = 'WaLiOffice'
   pptx.company = 'WaLiOffice'
   pptx.subject = req.title
+  pptx.theme = {
+    headFontFace: 'Microsoft YaHei',
+    bodyFontFace: 'Microsoft YaHei',
+  }
 
   for (const slide of req.slides) {
     const s = pptx.addSlide()
+
+    if (slide.background) {
+      s.background = { color: colorValue(slide.background, colorValue(req.palette.bg, 'F8FAFC')) }
+    }
 
     for (const el of slide.elements) {
       // Shape
@@ -100,11 +119,18 @@ export async function renderPptx(ctx: Context, req: RenderRequest): Promise<stri
           y: el.shape.y,
           w: el.shape.w,
           h: el.shape.h,
-          fill: { color: el.shape.fill.replace('#', '') },
+          fill: { color: colorValue(el.shape.fill, colorValue(req.palette.card, 'FFFFFF')) },
+        }
+        if (el.shape.shapeType === 'line') {
+          opts.fill = { color: colorValue(el.shape.fill, 'FFFFFF'), transparency: 100 }
+          opts.line = {
+            color: colorValue(el.shape.line?.color, colorValue(req.palette.primary, '2563EB')),
+            width: el.shape.line?.width ?? 1,
+          }
         }
         if (el.shape.line) {
           opts.line = {
-            color: el.shape.line.color.replace('#', ''),
+            color: colorValue(el.shape.line.color, colorValue(req.palette.primary, '2563EB')),
             width: el.shape.line.width,
           }
         }
@@ -119,10 +145,15 @@ export async function renderPptx(ctx: Context, req: RenderRequest): Promise<stri
           w: el.text.w,
           h: el.text.h,
           fontSize: el.text.fontSize,
-          color: el.text.color.replace('#', ''),
+          color: colorValue(el.text.color, '0F172A'),
           bold: el.text.bold,
           align: alignType(el.text.align),
-          fontFace: 'Arial',
+          valign: valignType(el.text.valign),
+          margin: 0.04,
+          breakLine: false,
+          fit: 'shrink',
+          paraSpaceAfter: 0,
+          fontFace: 'Microsoft YaHei',
         })
       }
 
@@ -146,9 +177,12 @@ export async function renderPptx(ctx: Context, req: RenderRequest): Promise<stri
           x: el.table.x,
           y: el.table.y,
           w: el.table.w,
-          border: { type: 'solid', pt: 1, color: 'CCCCCC' },
-          fontFace: 'Arial',
+          border: { type: 'solid', pt: 1, color: 'CBD5E1' },
+          fontFace: 'Microsoft YaHei',
           fontSize: 12,
+          color: '334155',
+          margin: 0.04,
+          valign: 'middle',
         })
       }
     }

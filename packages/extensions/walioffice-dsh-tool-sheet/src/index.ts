@@ -7,7 +7,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
+import { createOfficeDownload, inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 import { renderXlsx } from '@walioffice/dsh-office-render-xlsx'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -43,6 +43,46 @@ const SYSTEM_PROMPT = `你是数据分析师。只输出严格 JSON，不要 mar
 - 可分多表（明细+汇总）
 - 如用户没给足信息，自动补合理数据`
 
+function fallbackSheet(topic: string, sheetCount: number): SheetOutput {
+  const tables: SheetTable[] = []
+  for (let index = 0; index < Math.max(1, Math.min(6, sheetCount)); index += 1) {
+    const title = index === 0 ? `${topic.slice(0, 18)}执行清单` : `${topic.slice(0, 16)}汇总表${index + 1}`
+    tables.push({
+      title,
+      headers: ['编号', '工作项', '负责人', '计划日期', '状态', '备注'],
+      rows: [
+        ['1', `${topic}目标确认`, '项目负责人', '第1周', '待开始', '明确范围与验收标准'],
+        ['2', `${topic}资料准备`, '业务负责人', '第1周', '待开始', '整理现有资料与数据'],
+        ['3', `${topic}方案设计`, '方案负责人', '第2周', '进行中', '输出初版方案与任务拆解'],
+        ['4', `${topic}协作执行`, '执行团队', '第3周', '未开始', '按优先级推进关键任务'],
+        ['5', `${topic}阶段检查`, '质量负责人', '第4周', '未开始', '检查进度、质量与风险'],
+        ['6', `${topic}复盘优化`, '项目负责人', '第5周', '未开始', '沉淀经验并调整后续计划'],
+      ],
+      summary: `围绕“${topic}”整理的结构化执行数据，可用于跟踪任务、负责人、时间和状态。`,
+    })
+  }
+  return { tables }
+}
+
+function normalizeSheetOutput(value: unknown, topic: string, sheetCount: number): SheetOutput {
+  if (typeof value !== 'object' || value === null || !Array.isArray((value as { tables?: unknown }).tables)) {
+    throw new Error('LLM 返回的表格数据格式不正确')
+  }
+  const tables = (value as { tables: unknown[] }).tables.filter(item => typeof item === 'object' && item !== null).map((item, index) => {
+    const table = item as Partial<SheetTable>
+    const headers = Array.isArray(table.headers) ? table.headers.filter(item => typeof item === 'string') as string[] : []
+    const rows = Array.isArray(table.rows) ? table.rows.filter(row => Array.isArray(row)).map(row => (row as unknown[]).map(cell => typeof cell === 'number' || typeof cell === 'string' ? cell : String(cell))) : []
+    return {
+      title: typeof table.title === 'string' ? table.title : `${topic.slice(0, 18)}表${index + 1}`,
+      headers: headers.length > 0 ? headers : ['项目', '说明'],
+      rows: rows.length > 0 ? rows : [['暂无数据', `围绕${topic}补充明细`]],
+      summary: typeof table.summary === 'string' ? table.summary : `围绕“${topic}”整理的表格数据。`,
+    }
+  })
+  if (tables.length === 0) throw new Error('LLM 返回的表格数据格式不正确')
+  return { tables: tables.slice(0, Math.max(1, Math.min(6, sheetCount))) }
+}
+
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'sheet_generate',
@@ -59,6 +99,7 @@ export function apply(ctx: Context): void {
           tableCount: { type: 'integer', required: true },
           totalRows: { type: 'integer', required: true },
           filePath: { type: 'string', required: true },
+          download: { type: 'object' },
           tables: { type: 'array' },
         },
       },
@@ -89,16 +130,20 @@ export function apply(ctx: Context): void {
         '请生成专业的结构化表格数据，只返回 JSON。',
       ].filter(Boolean).join('\n')
 
-      const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
-      const output = json as unknown as SheetOutput
-
-      if (!output.tables || !Array.isArray(output.tables) || output.tables.length === 0) {
-        throw new Error('LLM 返回的表格数据格式不正确')
+      let output: SheetOutput
+      try {
+        const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
+        output = normalizeSheetOutput(json, topic, sheetCount)
+      } catch (err) {
+        office.emitProgress('running', '使用表格模板兜底', 'LLM 未返回可解析内容，已使用内置表格结构继续生成。')
+        output = fallbackSheet(topic, sheetCount)
+        void err
       }
 
       // Render to .xlsx
       office.emitProgress('running', '导出 Excel', '正在生成 .xlsx 文件...')
       const filePath = await renderXlsx(ctx, output)
+      const download = await createOfficeDownload(filePath, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
       const totalRows = output.tables.reduce((sum, t) => sum + t.rows.length, 0)
 
@@ -106,6 +151,7 @@ export function apply(ctx: Context): void {
         tableCount: output.tables.length,
         totalRows,
         filePath,
+        download,
         tables: output.tables.map(t => ({
           title: t.title,
           headers: t.headers,

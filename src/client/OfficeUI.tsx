@@ -11,6 +11,7 @@ import {
   openOfficePanel,
   publishArtifact,
   type OfficeArtifact,
+  type OfficeDownload,
   type OfficeArtifactMeta,
   type OfficeMode,
 } from './office-state.ts'
@@ -18,13 +19,28 @@ import {
 const ARTIFACT_STORAGE = 'walioffice:artifacts:v1'
 const MODE_STORAGE = 'walioffice:mode:v1'
 const MAX_ARTIFACTS = 24
+let hostOpenFile: ((path: string) => void) | undefined
 type OfficeOpenProps = { openOfficeDetails: () => void }
+type OfficeDockProps = OfficeOpenProps & { toggleOfficeDetails: () => void }
+const FILE_CATEGORIES: { id: OfficeMode; label: string }[] = [
+  { id: 'all', label: '全部' },
+  { id: 'doc', label: 'Word' },
+  { id: 'sheet', label: 'Excel' },
+  { id: 'ppt', label: 'PPT' },
+  { id: 'image', label: '图片' },
+  { id: 'video', label: '视频' },
+  { id: 'chart', label: '图表' },
+  { id: 'drawio', label: 'Draw.io' },
+]
 const NATIVE_DETAILS_STYLES = `
 .wo-panel{position:relative;z-index:auto;inset:auto;top:auto;right:auto;bottom:auto;width:100%;height:100%;min-width:0;min-height:0;border:0;border-left:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:0;box-shadow:none}
 @media(max-width:760px){.wo-panel{position:relative;inset:auto;width:100%;height:100%}}
 `
 const RICH_PREVIEW_STYLES = `
 .wo-rich{padding:0 12px 12px}.wo-meta-grid{display:grid;gap:8px}.wo-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 12px 12px}.wo-kpi{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-kpi strong{display:block;font-size:16px}.wo-kpi span{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin-top:4px}.wo-chart-bars{display:flex;flex-direction:column;gap:8px}.wo-bar-row{display:grid;grid-template-columns:72px minmax(0,1fr) 48px;gap:8px;align-items:center}.wo-bar-row label,.wo-bar-row em{font-size:11px;color:var(--dsw-alias-label-secondary,#4b5563);font-style:normal}.wo-bar-track{height:10px;border-radius:999px;background:#e5eefc;overflow:hidden}.wo-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#2563eb)}.wo-chart-svg{width:100%;height:auto;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;background:#fff}.wo-pie{width:180px;height:180px;border-radius:999px;margin:0 auto;background:conic-gradient(#7c3aed 0deg,#2563eb 120deg,#06b6d4 240deg,#ec4899 360deg)}.wo-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}.wo-legend-item{display:flex;align-items:center;gap:6px;font-size:11px}.wo-dot{width:10px;height:10px;border-radius:999px;display:inline-block}.wo-md{display:flex;flex-direction:column;gap:8px}.wo-md h1,.wo-md h2,.wo-md h3,.wo-md p,.wo-md ul{margin:0}.wo-md h1{font-size:16px}.wo-md h2{font-size:14px}.wo-md h3{font-size:13px}.wo-md p,.wo-md li{font-size:12px;line-height:1.65;color:var(--dsw-alias-label-secondary,#4b5563)}.wo-md ul{padding-left:18px}.wo-table-wrap{overflow:auto;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;background:#fff}.wo-table{width:100%;border-collapse:collapse;font-size:12px}.wo-table th,.wo-table td{padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);text-align:left;white-space:nowrap}.wo-table th{background:#f8fafc;color:#334155}.wo-slides{display:flex;flex-direction:column;gap:8px}.wo-slide{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-slide strong{display:block;font-size:12px}.wo-slide span,.wo-slide p{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin:4px 0 0}.wo-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wo-media-grid img,.wo-video{width:100%;border-radius:12px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:#fff}.wo-xml{margin:0;padding:12px;border-radius:12px;background:var(--dsw-alias-markdown-code-block,#f6f7f9);font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}.wo-storyboard{display:flex;flex-direction:column;gap:8px}.wo-story{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-story strong{font-size:12px}.wo-story p,.wo-story code{display:block;font-size:11px;color:var(--dsw-alias-label-secondary,#4b5563);margin-top:4px}.wo-preview-fallback{margin-top:12px}.wo-preview-fallback summary{cursor:pointer;font-size:12px;color:#2563eb}.wo-error-box{margin:12px;padding:12px;border-radius:12px;background:#ecfdf5;color:#166534;font-size:12px;line-height:1.6}.wo-error-raw{margin:12px;padding:12px;border-radius:12px;background:#f8fafc;color:#475569;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.wo-kpis,.wo-media-grid,.wo-legend{grid-template-columns:1fr}}
+`
+const DOWNLOAD_STYLES = `
+.wo-download-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:linear-gradient(180deg,#fff,#f8fbff)}.wo-download-title{min-width:0;display:flex;flex-direction:column;gap:3px}.wo-download-title strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-download-title span{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-download-button{border:1px solid #93c5fd;border-radius:8px;background:#eff6ff;color:#1d4ed8;padding:6px 10px;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer}.wo-download-button:hover{background:#dbeafe}
 `
 
 const DOCUMENT_PREVIEW_STYLES = `
@@ -78,6 +94,7 @@ const DOCUMENT_PREVIEW_STYLES = `
 `
 
 const LAYOUT_OVERRIDE_STYLES = `
+.wo-slides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wo-slide{min-width:0;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:8px;background:#fff}.wo-slide strong{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-slide span,.wo-slide p{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin:4px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-ppt-preview{display:grid;grid-template-columns:minmax(118px,23%) minmax(0,1fr);gap:12px;padding:12px;min-height:0;height:100%;overflow:hidden}.wo-ppt-stage{min-width:0;min-height:0;border:1px solid #dbe4f0;border-radius:16px;background:linear-gradient(135deg,#eef5ff,#f8fafc);padding:12px;box-shadow:0 10px 28px rgba(15,23,42,.08);display:flex;flex-direction:column}.wo-ppt-stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}.wo-ppt-stage-head strong{font-size:12px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-ppt-stage-head span{font-size:11px;color:#64748b;white-space:nowrap}.wo-ppt-main{width:100%;margin:auto;border:1px solid #cbd5e1;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 8px 20px rgba(15,23,42,.12)}.wo-ppt-thumbnails{min-width:0;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:2px 4px 10px 0;scrollbar-width:thin}.wo-ppt-thumb-button{border:2px solid transparent;border-radius:10px;padding:3px;background:#fff;cursor:pointer;text-align:left;flex:0 0 auto}.wo-ppt-thumb-button:hover{border-color:#93c5fd}.wo-ppt-thumb-button[data-active]{border-color:#2563eb;box-shadow:0 0 0 2px #dbeafe}.wo-ppt-thumb-caption{display:block;padding:4px 3px 1px;font-size:10px;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-ppt-main .wo-ppt-thumb{border:0;border-radius:0;margin:0}.wo-ppt-main .wo-ppt-thumb-element{font-family:"Microsoft YaHei",Arial,sans-serif}.wo-ppt-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc;margin-bottom:8px}.wo-ppt-thumb-element{position:absolute;overflow:hidden;white-space:pre-wrap;word-break:break-word}.wo-ppt-thumb-text{line-height:1.15}.wo-ppt-thumb-table{border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:5px;padding:2px}.wo-ppt-thumb-table strong{font-size:5px;color:#1d4ed8}.wo-ppt-thumb-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:8px;text-align:center;font-size:12px;font-weight:700;color:#1d4ed8}
 .wo-dock{width:calc(100% - var(--dsh-composer-side-clearance,24px)*2)!important;max-width:var(--dsh-composer-card-max-width,920px)!important;min-width:min(100%,680px)!important;min-height:52px!important;align-self:center!important;margin:0 auto 10px!important;padding:10px 12px!important}
 .wo-dock-brand{flex:0 0 auto}
 .wo-mode-list{flex:1 1 auto;min-width:0}
@@ -86,10 +103,16 @@ const LAYOUT_OVERRIDE_STYLES = `
 .wo-panel-tabs button{padding:0 14px;height:34px}
 .wo-preview-stage,.wo-files-view{min-height:0;flex:1;display:flex;flex-direction:column}
 .wo-preview-stage{background:color-mix(in srgb,var(--dsw-alias-bg-base,#fff) 96%,#eff6ff)}
+.wo-files-view{overflow:auto;background:color-mix(in srgb,var(--dsw-alias-bg-base,#fff) 96%,#eff6ff)}
+.wo-file-filters{display:flex;gap:7px;overflow:auto;padding:12px 14px 4px;scrollbar-width:none}.wo-file-filters::-webkit-scrollbar{display:none}
+.wo-file-filter{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:999px;background:#fff;color:#475569;padding:6px 10px;font-size:11px;white-space:nowrap;cursor:pointer}.wo-file-filter[data-active]{border-color:#93c5fd;background:#eff6ff;color:#1d4ed8}.wo-file-filter span{margin-left:4px;color:#94a3b8}
+.wo-file-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 14px 16px}.wo-file-tile{min-width:0;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:14px;background:#fff;padding:8px;text-align:left;cursor:pointer;color:inherit;overflow:hidden}.wo-file-tile:hover,.wo-file-tile[data-selected]{border-color:#93c5fd;box-shadow:0 3px 12px rgba(37,99,235,.12)}.wo-file-tile-copy{display:flex;flex-direction:column;gap:3px;margin-top:7px;min-width:0}.wo-file-tile-copy strong,.wo-file-tile-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-file-tile-copy strong{font-size:12px}.wo-file-tile-copy small,.wo-file-tile-copy time{font-size:10px;color:#64748b}.wo-file-thumb{height:92px;border-radius:10px;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:9px;overflow:hidden}.wo-file-thumb strong,.wo-file-thumb small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-file-thumb strong{font-size:12px}.wo-file-thumb small{font-size:10px}.wo-file-thumb-image,.wo-file-thumb-video{padding:0;background:#f8fafc}.wo-file-thumb-image img,.wo-file-thumb-video video{width:100%;height:100%;object-fit:cover}.wo-file-thumb-sheet{background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46}.wo-file-thumb-doc{background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e3a8a}.wo-file-thumb-ppt{background:linear-gradient(135deg,#fff7ed,#fed7aa);color:#9a3412}.wo-file-thumb-generic{align-items:center;color:#fff}.wo-file-thumb-generic strong{font-size:24px}
 .wo-preview-switcher{display:flex;gap:8px;overflow:auto;padding:10px 14px 0;scrollbar-width:none}
 .wo-preview-switcher::-webkit-scrollbar{display:none}
 .wo-switch-chip{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:#fff;color:var(--dsw-alias-label-secondary,#4b5563);border-radius:999px;padding:7px 12px;font-size:12px;white-space:nowrap;cursor:pointer}
 .wo-switch-chip[data-active]{border-color:#93c5fd;background:#eff6ff;color:#1d4ed8}
+.wo-preview:has(.wo-ppt-preview){padding:0;overflow:hidden;scrollbar-width:none}.wo-preview:has(.wo-ppt-preview)::-webkit-scrollbar{display:none}.wo-preview-card:has(.wo-ppt-preview){height:100%;border:0;border-radius:0;background:#eef1f4}.wo-preview-card:has(.wo-ppt-preview) .wo-ppt-preview{height:100%}.wo-type-icon{display:inline-block;width:16px;height:16px;flex:0 0 16px;vertical-align:-3px}.wo-type-icon svg{display:block;width:100%;height:100%}.wo-artifact-icon .wo-type-icon,.wo-tool-icon .wo-type-icon{width:18px;height:18px;flex-basis:18px;vertical-align:0}.wo-file-thumb-generic .wo-type-icon{width:28px;height:28px;flex-basis:28px}
+.wo-drawio-preview{display:flex;flex-direction:column;height:100%;min-height:560px;background:#f1f5f9}.wo-drawio-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid #e2e8f0;background:#fff}.wo-drawio-head strong{font-size:13px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wo-drawio-head span{font-size:11px;color:#64748b;white-space:nowrap}.wo-drawio-canvas{position:relative;flex:1;min-height:420px;overflow:auto;background:linear-gradient(135deg,#f8fafc,#eef2ff);padding:18px}.wo-drawio-svg{display:block;width:100%;height:100%;min-height:420px;border:1px solid #dbe4f0;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.08)}.wo-drawio-empty{display:grid;place-items:center;height:100%;min-height:420px;color:#64748b;font-size:12px}.wo-drawio-xml{margin:10px 12px 12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden}.wo-drawio-xml summary{cursor:pointer;padding:9px 11px;color:#475569;font-size:11px}.wo-drawio-xml pre{margin:0;max-height:180px;border-top:1px solid #e2e8f0;border-radius:0;font-size:10px}
 .wo-preview-stage .wo-preview{padding-top:8px}
 .wo-files-view .wo-artifact-list{padding-top:14px;border-bottom:0}
 .wo-artifact-list{padding:10px;overflow:auto}
@@ -105,6 +128,7 @@ const LAYOUT_OVERRIDE_STYLES = `
   .wo-dock{width:calc(100% - 16px)!important;min-width:0!important;min-height:52px!important;padding:8px 10px!important}
   .wo-panel{width:calc(100vw - 16px)!important}
   .wo-preview-switcher{padding:8px 12px 0}
+  .wo-file-grid{grid-template-columns:1fr}
 }
 `
 
@@ -112,7 +136,7 @@ const DOCK_STABLE_HEIGHT_STYLES = `
 .wo-dock{min-height:52px}
 `
 
-export function OfficeDock({ useInput, inputActions, openOfficeDetails }: PropsRuntime<'conversation.input.dock'> & OfficeOpenProps): JSX.Element {
+export function OfficeDock({ useInput, inputActions, toggleOfficeDetails }: PropsRuntime<'conversation.input.dock'> & OfficeDockProps): JSX.Element {
   const input = useInput(state => state)
   const [mode, setMode] = useState<OfficeMode>(() => readMode())
 
@@ -128,7 +152,7 @@ export function OfficeDock({ useInput, inputActions, openOfficeDetails }: PropsR
     <div className="wo-dock" aria-label="WaLiOffice 办公工具栏">
       <div className="wo-dock-brand">
         <span className="wo-brand-mark">W</span>
-        <span>智能办公</span>
+        <span>WaLiOffice</span>
       </div>
       <div className="wo-mode-list">
         {OFFICE_MODES.map(item => <button
@@ -144,7 +168,7 @@ export function OfficeDock({ useInput, inputActions, openOfficeDetails }: PropsR
           {item.shortLabel}
         </button>)}
       </div>
-      <button type="button" className="wo-artifacts-button" onClick={() => { openOfficeDetails(); openOfficePanel() }}>
+      <button type="button" className="wo-artifacts-button" onClick={toggleOfficeDetails}>
         <span>▤</span> 产物
       </button>
     </div>
@@ -160,8 +184,12 @@ export function OfficeToolView({ toolName, callId, block, openFile, inspect, ope
   const topic = readTopic(argsRaw)
 
   useEffect(() => {
+    hostOpenFile = openFile
     if (artifact) publishArtifact(artifact)
-  }, [artifact])
+    return () => {
+      if (hostOpenFile === openFile) hostOpenFile = undefined
+    }
+  }, [artifact, openFile])
 
   return <>
     <OfficeStyles />
@@ -182,6 +210,7 @@ export function OfficeToolView({ toolName, callId, block, openFile, inspect, ope
       </div>}
       <div className="wo-tool-actions">
         {artifact && <button type="button" onClick={() => { openOfficeDetails(); openOfficePanel(artifact.id) }}>查看产物</button>}
+        {artifact && canDownloadArtifact(artifact) && <button type="button" onClick={() => { void downloadArtifact(artifact, openFile) }}>下载文件</button>}
         {artifact?.filePath && <button type="button" onClick={() => openFile(artifact.filePath!)}>打开文件</button>}
         {inspect && <button type="button" onClick={inspect}>执行详情</button>}
       </div>
@@ -207,7 +236,7 @@ export function OfficeDetailsPanel({ closeDetails }: { closeDetails: () => void 
       if (!artifact) return
       setArtifacts(current => {
         const next = [artifact, ...current.filter(item => item.id !== artifact.id)].slice(0, MAX_ARTIFACTS)
-        safeStorageSet(ARTIFACT_STORAGE, JSON.stringify(next))
+        safeStorageSet(ARTIFACT_STORAGE, JSON.stringify(next.map(stripDownloadForStorage)))
         return next
       })
       setSelectedId(artifact.id)
@@ -224,11 +253,11 @@ export function OfficeDetailsPanel({ closeDetails }: { closeDetails: () => void 
 
   return <>
     <OfficeStyles />
-    <aside className="wo-panel" aria-label="WaLiOffice 智能办公助手">
+    <aside className="wo-panel" aria-label="WaLiOffice">
       <header className="wo-panel-header">
         <div className="wo-panel-title">
           <span className="wo-logo">W</span>
-          <div><strong>智能办公助手</strong><span>打开即用，专注办公创作</span></div>
+          <div><strong>WaLiOffice</strong><span>打开即用，专注办公创作</span></div>
         </div>
         <button type="button" className="wo-close" onClick={closeDetails} aria-label="关闭办公详情栏">×</button>
       </header>
@@ -246,20 +275,18 @@ export function OfficeDetailsPanel({ closeDetails }: { closeDetails: () => void 
               data-active={item.id === selected?.id ? 'true' : undefined}
               onClick={() => setSelectedId(item.id)}
             >
-              {modeGlyph(item.mode)} {item.title}
+              {modeGlyph(item.mode)} {artifactDisplayTitle(item)}
             </button>)}
           </div>}
           <div className="wo-preview">
             {selected ? <ArtifactPreview artifact={selected} /> : <EmptyArtifacts />}
           </div>
         </div>
-        : <div className="wo-files-view">
-          <div className="wo-artifact-list">
-            {artifacts.length === 0
-              ? <EmptyArtifacts />
-              : artifacts.map(item => <ArtifactRow key={item.id} artifact={item} selected={item.id === selected?.id} onSelect={() => { setSelectedId(item.id); setTab('preview') }} />)}
-          </div>
-        </div>}
+        : <FileLibrary
+          artifacts={artifacts}
+          selectedId={selected?.id}
+          onSelect={artifact => { setSelectedId(artifact.id); setTab('preview') }}
+        />}
     </aside>
   </>
 }
@@ -268,9 +295,59 @@ function ArtifactRow({ artifact, selected, onSelect }: { artifact: OfficeArtifac
   const mode = modeDefinition(artifact.mode)
   return <button type="button" className="wo-artifact-row" data-selected={selected ? 'true' : undefined} onClick={onSelect}>
     <span className="wo-artifact-icon" style={{ background: mode.color }}>{modeGlyph(artifact.mode)}</span>
-    <span className="wo-artifact-copy"><strong>{artifact.title}</strong><small>{artifact.summary}</small></span>
+    <span className="wo-artifact-copy"><strong>{artifactDisplayTitle(artifact)}</strong><small>{artifact.summary}</small></span>
     <time>{formatTime(artifact.createdAt)}</time>
   </button>
+}
+
+function FileLibrary({ artifacts, selectedId, onSelect }: { artifacts: OfficeArtifact[]; selectedId?: string; onSelect: (artifact: OfficeArtifact) => void }): JSX.Element {
+  const [category, setCategory] = useState<OfficeMode>('all')
+  const filtered = category === 'all' ? artifacts : artifacts.filter(item => item.mode === category)
+  return <div className="wo-files-view">
+    <div className="wo-file-filters">
+      {FILE_CATEGORIES.map(item => <button
+        key={item.id}
+        type="button"
+        className="wo-file-filter"
+        data-active={category === item.id ? 'true' : undefined}
+        onClick={() => setCategory(item.id)}
+      >{item.label}<span>{item.id === 'all' ? artifacts.length : artifacts.filter(artifact => artifact.mode === item.id).length}</span></button>)}
+    </div>
+    {filtered.length === 0
+      ? <EmptyArtifacts />
+      : <div className="wo-file-grid">{filtered.map(artifact => <button
+        key={artifact.id}
+        type="button"
+        className="wo-file-tile"
+        data-selected={artifact.id === selectedId ? 'true' : undefined}
+        onClick={() => onSelect(artifact)}
+      >
+        <ArtifactThumbnail artifact={artifact} />
+        <span className="wo-file-tile-copy"><strong>{artifactDisplayTitle(artifact)}</strong><small>{artifact.summary}</small><time>{formatTime(artifact.createdAt)}</time></span>
+      </button>)}</div>}
+  </div>
+}
+
+function ArtifactThumbnail({ artifact }: { artifact: OfficeArtifact }): JSX.Element {
+  const meta = artifact.meta
+  if (meta?.kind === 'image' && meta.images[0]?.url) {
+    return <span className="wo-file-thumb wo-file-thumb-image"><img src={meta.images[0].url} alt="" /></span>
+  }
+  if (meta?.kind === 'video' && meta.videoUrl) {
+    return <span className="wo-file-thumb wo-file-thumb-video"><video muted preload="metadata" src={meta.videoUrl} /></span>
+  }
+  if (meta?.kind === 'sheet' && meta.tables?.[0]) {
+    const table = meta.tables[0]
+    return <span className="wo-file-thumb wo-file-thumb-sheet"><strong>{table.title}</strong><small>{table.headers.slice(0, 3).join(' · ')}</small><small>{table.rows?.slice(0, 2).map(row => row.slice(0, 3).join(' | ')).join(' / ')}</small></span>
+  }
+  if (meta?.kind === 'doc' || meta?.kind === 'markdown') {
+    return <span className="wo-file-thumb wo-file-thumb-doc"><strong>{artifactDisplayTitle(artifact)}</strong><small>{meta.kind === 'doc' ? `${meta.sections?.length ?? 0} 个章节` : 'Markdown 文档'}</small></span>
+  }
+  if (meta?.kind === 'ppt') {
+    return <span className="wo-file-thumb wo-file-thumb-ppt"><strong>{meta.title}</strong><small>{meta.slideCount} 页</small></span>
+  }
+  const mode = modeDefinition(artifact.mode)
+  return <span className="wo-file-thumb wo-file-thumb-generic" style={{ background: mode.color }}><strong>{modeGlyph(artifact.mode)}</strong><small>{mode.label}</small></span>
 }
 
 function ArtifactPreview({ artifact }: { artifact: OfficeArtifact }): JSX.Element {
@@ -282,6 +359,10 @@ function ArtifactPreview({ artifact }: { artifact: OfficeArtifact }): JSX.Elemen
   }
 
   return <div className="wo-preview-card" data-doc-preview={artifact.meta?.kind === 'doc' ? 'true' : undefined}>
+    <div className="wo-download-bar">
+      <div className="wo-download-title"><strong>{artifactDisplayTitle(artifact)}</strong><span>{downloadFileName(artifact) ?? '办公产物'}</span></div>
+      {canDownloadArtifact(artifact) && <button type="button" className="wo-download-button" onClick={() => { void downloadArtifact(artifact) }}>下载文件</button>}
+    </div>
     <ArtifactRichPreview artifact={artifact} />
   </div>
 }
@@ -304,12 +385,14 @@ function ArtifactRichPreview({ artifact }: { artifact: OfficeArtifact }): JSX.El
 }
 
 function DocPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'doc' }> }): JSX.Element {
-  const sections = meta.sections?.length ? meta.sections : sectionsFromMarkdown(meta.markdown)
+  const sections = sanitizeDocPreviewSections(meta.sections?.length ? meta.sections : sectionsFromMarkdown(meta.markdown), meta.title)
   const lead = sections[0]
+  const leadHeading = lead?.heading.trim() ?? ''
+  const bodySections = leadHeading === '摘要' || leadHeading === '概述' ? sections.slice(1) : sections
   return <div className="wo-rich">
     <div className="wo-doc-surface"><div className="wo-doc-page">
-      <div className="wo-doc-hero"><span className="wo-doc-badge">Word 预览</span><h1>{meta.title}</h1><p>{docLeadText(lead)}</p></div>
-      {sections.slice(0, 5).map((section, index) => <section key={`${section.heading}-${index}`} className="wo-doc-section">
+      <div className="wo-doc-hero"><span className="wo-doc-badge">Word 预览</span><h1>{compactPreviewTitle(meta.title)}</h1>{lead && <p>{docLeadText(lead)}</p>}</div>
+      {bodySections.slice(0, 5).map((section, index) => <section key={`${section.heading}-${index}`} className="wo-doc-section">
         {!HIDDEN_DOC_SECTION_HEADINGS.has(section.heading.trim()) && (section.headingLevel > 1 ? <h3>{section.heading}</h3> : <h2>{section.heading}</h2>)}
         {section.paragraphs.slice(0, 2).map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{stripInlineMarkdown(paragraph)}</p>)}
         {section.bullets.length > 0 && <ul className="wo-doc-bullets">{section.bullets.slice(0, 5).map((bullet, bulletIndex) => <li key={bulletIndex}>{stripInlineMarkdown(bullet)}</li>)}</ul>}
@@ -317,6 +400,44 @@ function DocPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'doc' 
       </section>)}
     </div></div>
   </div>
+}
+
+function normalizePreviewText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function isPreviewRequestEcho(value: string, title: string): boolean {
+  const text = normalizePreviewText(value)
+  const rawTitle = normalizePreviewText(title)
+  if (!text || !rawTitle) return false
+  if (text === rawTitle) return true
+  return rawTitle.length >= 24 && text.length >= rawTitle.length && text.startsWith(rawTitle)
+}
+
+function sanitizeDocPreviewSections(sections: NonNullable<Extract<OfficeArtifactMeta, { kind: 'doc' }>['sections']>, title: string) {
+  const seen = new Set<string>()
+  return sections.map((section, index) => {
+    const heading = normalizePreviewText(section.heading) || `第 ${index + 1} 部分`
+    const paragraphs = section.paragraphs
+      .map(normalizePreviewText)
+      .filter(text => text && !isPreviewRequestEcho(text, title))
+      .filter(text => {
+        if (seen.has(text)) return false
+        seen.add(text)
+        return true
+      })
+      .slice(0, 3)
+    const bullets = section.bullets
+      .map(normalizePreviewText)
+      .filter(Boolean)
+      .filter(text => {
+        if (seen.has(text)) return false
+        seen.add(text)
+        return true
+      })
+      .slice(0, 6)
+    return { ...section, heading, paragraphs, bullets }
+  }).filter(section => section.paragraphs.length > 0 || section.bullets.length > 0 || section.table)
 }
 
 function ChartPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'chart' }> }): JSX.Element {
@@ -386,7 +507,37 @@ function SheetPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'she
 }
 
 function PptPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'ppt' }> }): JSX.Element {
-  return <div className="wo-rich">{meta.slideCount > 0 && <div className="wo-kpis"><div className="wo-kpi"><strong>{meta.slideCount}</strong><span>幻灯片页数</span></div><div className="wo-kpi"><strong>{meta.slides?.[0]?.layout ?? '-'}</strong><span>首页布局</span></div><div className="wo-kpi"><strong>{meta.filePath ? 'PPTX' : '大纲'}</strong><span>产物类型</span></div></div>}<div className="wo-slides">{meta.slides?.slice(0, 6).map((slide, index) => <div key={index} className="wo-slide"><strong>第 {slide.index ?? index + 1} 页</strong><span>{slide.title ?? slide.layout ?? '未命名页面'}</span>{slide.goal && <p>{slide.goal}</p>}{slide.points && slide.points.length > 0 && <span>{slide.points.slice(0, 3).join(' · ')}</span>}</div>)}</div></div>
+  const slides = meta.slides ?? []
+  const [currentIndex, setCurrentIndex] = useState(0)
+  useEffect(() => setCurrentIndex(0), [meta.title, meta.filePath, slides.length])
+  const safeIndex = Math.min(currentIndex, Math.max(0, slides.length - 1))
+  const current = slides[safeIndex]
+  if (!current) return <div className="wo-rich"><div className="wo-empty"><strong>暂无可预览的幻灯片</strong><p>该 PPT 已生成文件，但没有返回结构化页面数据。</p></div></div>
+  return <div className="wo-ppt-preview">
+    <div className="wo-ppt-thumbnails">
+      {slides.slice(0, 12).map((slide, index) => <button key={index} type="button" className="wo-ppt-thumb-button" data-active={index === safeIndex ? 'true' : undefined} onClick={() => setCurrentIndex(index)}>
+        <PptSlideThumb slide={slide} />
+        <span className="wo-ppt-thumb-caption">{index + 1}. {slide.title ?? '未命名页面'}</span>
+      </button>)}
+    </div>
+    <div className="wo-ppt-stage">
+      <div className="wo-ppt-stage-head"><strong>{current.title ?? `第 ${safeIndex + 1} 页`}</strong><span>{safeIndex + 1} / {slides.length}</span></div>
+      <div className="wo-ppt-main"><PptSlideThumb slide={current} large /></div>
+    </div>
+  </div>
+}
+
+function PptSlideThumb({ slide, large = false }: { slide: NonNullable<Extract<OfficeArtifactMeta, { kind: 'ppt' }>['slides']>[number]; large?: boolean }): JSX.Element {
+  if (!slide.elements?.length) {
+    return <div className="wo-ppt-thumb"><span className="wo-ppt-thumb-fallback">{slide.title ?? slide.layout ?? '未命名页面'}</span></div>
+  }
+  return <div className={`wo-ppt-thumb${large ? ' wo-ppt-thumb-large' : ''}`} style={{ background: `#${slide.background ?? 'F8FAFC'}` }}>{slide.elements.map((element, index) => {
+    const base = { left: `${(element.shape?.x ?? element.text?.x ?? element.table?.x ?? 0) / 13.33 * 100}%`, top: `${(element.shape?.y ?? element.text?.y ?? 0) / 7.5 * 100}%`, width: `${(element.shape?.w ?? element.text?.w ?? element.table?.w ?? 0) / 13.33 * 100}%`, height: `${(element.shape?.h ?? element.text?.h ?? 0) / 7.5 * 100}%` }
+    if (element.shape) return <span key={index} className="wo-ppt-thumb-element" style={{ ...base, background: `#${(element.shape.fill ?? 'e2e8f0').replace('#', '')}`, borderRadius: element.shape.shapeType === 'ellipse' ? '999px' : element.shape.shapeType === 'roundRect' ? '1.6%' : undefined, boxShadow: element.shape.shapeType === 'roundRect' && (element.shape.w ?? 0) > 2 ? '0 2px 10px rgba(15,23,42,.08)' : undefined }} />
+    if (element.text) return <span key={index} className="wo-ppt-thumb-element wo-ppt-thumb-text" style={{ ...base, color: `#${(element.text.color ?? '0f172a').replace('#', '')}`, fontSize: `${Math.max(large ? 8 : 5, Math.min(large ? 36 : 14, (element.text.fontSize ?? 14) * (large ? 1 : 0.3)))}px`, fontWeight: element.text.bold ? 700 : 400, textAlign: element.text.align as 'left' | 'center' | 'right', display: 'flex', alignItems: element.text.valign === 'middle' ? 'center' : element.text.valign === 'bottom' ? 'flex-end' : 'flex-start', padding: large ? '0.25em' : '0.1em', lineHeight: large && (element.text.fontSize ?? 0) >= 28 ? 1.1 : 1.25 }}>{element.text.content}</span>
+    if (element.table) return <span key={index} className="wo-ppt-thumb-element wo-ppt-thumb-table" style={base}><strong>{element.table.headers.join(' · ')}</strong><br />{element.table.rows.slice(0, 2).map(row => row.join(' | ')).join('\n')}</span>
+    return null
+  })}</div>
 }
 
 function ImagePreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'image' }> }): JSX.Element {
@@ -402,15 +553,241 @@ function StoryboardPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind:
 }
 
 function DrawioPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'drawio' }> }): JSX.Element {
-  return <div className="wo-rich"><div className="wo-kpis"><div className="wo-kpi"><strong>{meta.diagramType}</strong><span>图表类型</span></div><div className="wo-kpi"><strong>{meta.title}</strong><span>标题</span></div><div className="wo-kpi"><strong>{Math.min(meta.xml.length, 9999)}</strong><span>XML 长度</span></div></div><pre className="wo-xml">{meta.xml.slice(0, 2400)}</pre></div>
+  return <div className="wo-drawio-preview">
+    <div className="wo-drawio-head"><strong>{meta.title || 'draw.io 图表'}</strong><span>{meta.diagramType} · 可视化预览</span></div>
+    <DrawioSvgCanvas xml={meta.xml} />
+    <details className="wo-drawio-xml">
+      <summary>查看 XML 源码（{meta.xml.length} 字符）</summary>
+      <pre className="wo-xml">{meta.xml.slice(0, 12000)}</pre>
+    </details>
+  </div>
+}
+
+interface DrawioNode {
+  id: string
+  label: string
+  x: number
+  y: number
+  width: number
+  height: number
+  fill: string
+  stroke: string
+  color: string
+  rounded: boolean
+}
+
+interface DrawioEdge {
+  id: string
+  source: string
+  target: string
+  color: string
+}
+
+interface DrawioDiagram {
+  width: number
+  height: number
+  nodes: DrawioNode[]
+  edges: DrawioEdge[]
+}
+
+function drawioStyle(style: string | null): Record<string, string> {
+  return Object.fromEntries((style ?? '').split(';').filter(Boolean).map(part => {
+    const separator = part.indexOf('=')
+    return separator > 0 ? [part.slice(0, separator), part.slice(separator + 1)] : [part, '1']
+  }))
+}
+
+function drawioLabel(value: string | null): string {
+  return (value ?? '')
+    .replace(/<br\s*\/?>(\s*)/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&#xa;/g, '\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseDrawioDiagram(xml: string): DrawioDiagram | null {
+  try {
+    const document = new DOMParser().parseFromString(xml, 'application/xml')
+    if (document.querySelector('parsererror')) return null
+    const model = document.querySelector('mxGraphModel')
+    if (!model) return null
+    const nodes: DrawioNode[] = []
+    const edges: DrawioEdge[] = []
+    const cellElements = Array.from(model.querySelectorAll('mxCell'))
+    for (const cell of cellElements) {
+      const geometry = cell.querySelector(':scope > mxGeometry')
+      const x = Number(geometry?.getAttribute('x') ?? 0)
+      const y = Number(geometry?.getAttribute('y') ?? 0)
+      const width = Number(geometry?.getAttribute('width') ?? 120)
+      const height = Number(geometry?.getAttribute('height') ?? 60)
+      const style = drawioStyle(cell.getAttribute('style'))
+      if (cell.getAttribute('vertex') === '1' && cell.getAttribute('id')) {
+        nodes.push({
+          id: cell.getAttribute('id')!,
+          label: drawioLabel(cell.getAttribute('value')),
+          x, y, width, height,
+          fill: style.fillColor || '#dae8fc',
+          stroke: style.strokeColor || '#6c8ebf',
+          color: style.fontColor || '#1f2937',
+          rounded: style.rounded === '1',
+        })
+      }
+      if (cell.getAttribute('edge') === '1' && cell.getAttribute('source') && cell.getAttribute('target')) {
+        edges.push({ id: cell.getAttribute('id') ?? `edge-${edges.length}`, source: cell.getAttribute('source')!, target: cell.getAttribute('target')!, color: style.strokeColor || '#64748b' })
+      }
+    }
+    const maxX = Math.max(Number(model.getAttribute('pageWidth') ?? 850), ...nodes.map(node => node.x + node.width), 850)
+    const maxY = Math.max(Number(model.getAttribute('pageHeight') ?? 600), ...nodes.map(node => node.y + node.height), 600)
+    return { width: maxX + 40, height: maxY + 40, nodes, edges }
+  } catch {
+    return null
+  }
+}
+
+function DrawioSvgCanvas({ xml }: { xml: string }): JSX.Element {
+  const diagram = useMemo(() => parseDrawioDiagram(xml), [xml])
+  if (!diagram) return <div className="wo-drawio-canvas"><div className="wo-drawio-empty">当前 XML 无法解析为可视化图表，请展开下方源码检查。</div></div>
+  const nodeMap = new Map(diagram.nodes.map(node => [node.id, node]))
+  return <div className="wo-drawio-canvas">
+    <svg className="wo-drawio-svg" viewBox={`0 0 ${diagram.width} ${diagram.height}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="draw.io 图表预览">
+      <defs><marker id="drawio-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#64748b" /></marker></defs>
+      {diagram.edges.map(edge => {
+        const source = nodeMap.get(edge.source)
+        const target = nodeMap.get(edge.target)
+        if (!source || !target) return null
+        return <line key={edge.id} x1={source.x + source.width} y1={source.y + source.height / 2} x2={target.x} y2={target.y + target.height / 2} stroke={edge.color} strokeWidth="2" markerEnd="url(#drawio-arrow)" />
+      })}
+      {diagram.nodes.map(node => <g key={node.id}>
+        <rect x={node.x} y={node.y} width={node.width} height={node.height} rx={node.rounded ? 12 : 2} fill={node.fill} stroke={node.stroke} strokeWidth="2" />
+        <text x={node.x + node.width / 2} y={node.y + node.height / 2} textAnchor="middle" dominantBaseline="middle" fill={node.color} fontSize="16" fontFamily="Microsoft YaHei, PingFang SC, sans-serif">{node.label}</text>
+      </g>)}
+    </svg>
+  </div>
 }
 
 function EmptyArtifacts(): JSX.Element {
   return <div className="wo-empty"><span>▤</span><strong>暂无办公产物</strong><p>在对话中生成 Word、Excel、PPT 等内容后，会自动汇总到这里。</p></div>
 }
 
+function readDownload(meta: OfficeArtifactMeta | undefined): OfficeDownload | undefined {
+  if (!meta || !('download' in meta)) return undefined
+  const value = meta.download
+  if (!value || typeof value !== 'object') return undefined
+  const download = value as Partial<OfficeDownload>
+  return typeof download.fileName === 'string' && typeof download.mimeType === 'string' && typeof download.base64 === 'string'
+    ? download as OfficeDownload
+    : undefined
+}
+
+function stripDownloadForStorage(artifact: OfficeArtifact): OfficeArtifact {
+  if (!artifact.meta || !('download' in artifact.meta)) return artifact
+  const meta = { ...artifact.meta } as OfficeArtifactMeta & { download?: OfficeDownload }
+  delete meta.download
+  return { ...artifact, meta }
+}
+
+function downloadFileName(artifact: OfficeArtifact): string | undefined {
+  const embedded = readDownload(artifact.meta)
+  if (embedded) return embedded.fileName
+  if (artifact.meta?.kind === 'drawio') return `${safeFileName(artifact.meta.title || 'drawio')}.drawio`
+  if (artifact.meta?.kind === 'markdown') return `${safeFileName(artifact.meta.title || '文档')}.md`
+  if (artifact.meta?.kind === 'image') return 'image.png'
+  if (artifact.meta?.kind === 'video') return 'video.mp4'
+  if (artifact.filePath) return artifact.filePath.split(/[\\/]/).pop()
+  return undefined
+}
+
+function canDownloadArtifact(artifact: OfficeArtifact): boolean {
+  return Boolean(readDownload(artifact.meta) || artifact.filePath || artifact.meta?.kind === 'drawio' || artifact.meta?.kind === 'markdown' || artifact.meta?.kind === 'image' || artifact.meta?.kind === 'video')
+}
+
+async function downloadArtifact(artifact: OfficeArtifact, fallbackOpenFile?: (path: string) => void): Promise<void> {
+  const embedded = readDownload(artifact.meta)
+  if (embedded) {
+    triggerDownload(base64ToBlob(embedded.base64, embedded.mimeType), embedded.fileName)
+    return
+  }
+
+  if (artifact.meta?.kind === 'drawio') {
+    triggerDownload(new Blob([artifact.meta.xml], { type: 'application/xml;charset=utf-8' }), downloadFileName(artifact) ?? 'drawio.drawio')
+    return
+  }
+
+  if (artifact.meta?.kind === 'markdown') {
+    triggerDownload(new Blob([artifact.meta.markdown], { type: 'text/markdown;charset=utf-8' }), downloadFileName(artifact) ?? 'document.md')
+    return
+  }
+
+  const mediaUrl = artifact.meta?.kind === 'image'
+    ? artifact.meta.images[0]?.url
+    : artifact.meta?.kind === 'video'
+      ? artifact.meta.videoUrl
+      : undefined
+  if (mediaUrl) {
+    await downloadUrl(mediaUrl, downloadFileName(artifact) ?? (artifact.meta?.kind === 'video' ? 'video.mp4' : 'image.png'))
+    return
+  }
+
+  if (artifact.filePath) {
+    const fileName = downloadFileName(artifact) ?? 'office-file'
+    const anchor = document.createElement('a')
+    anchor.href = filePathToUrl(artifact.filePath)
+    anchor.download = fileName
+    anchor.target = '_blank'
+    anchor.rel = 'noopener'
+    anchor.click()
+    if (fallbackOpenFile) window.setTimeout(() => fallbackOpenFile(artifact.filePath!), 250)
+  }
+}
+
+function triggerDownload(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+async function downloadUrl(url: string, fileName: string): Promise<void> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    triggerDownload(await response.blob(), fileName)
+  } catch {
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileName
+    anchor.target = '_blank'
+    anchor.rel = 'noopener'
+    anchor.click()
+  }
+}
+
+function base64ToBlob(value: string, mimeType: string): Blob {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new Blob([bytes], { type: mimeType })
+}
+
+function filePathToUrl(filePath: string): string {
+  if (filePath.startsWith('file://')) return filePath
+  const normalized = filePath.replace(/\\/g, '/')
+  const encoded = normalized.split('/').map(part => encodeURIComponent(part)).join('/')
+  return normalized.startsWith('/') ? `file://${encoded}` : `file:///${encoded}`
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[\\/:*?"<>|]/g, '_').trim() || 'office-file'
+}
+
 function OfficeStyles(): JSX.Element {
-  return <style>{STYLES + NATIVE_DETAILS_STYLES + RICH_PREVIEW_STYLES + DOCUMENT_PREVIEW_STYLES + LAYOUT_OVERRIDE_STYLES + DOCK_STABLE_HEIGHT_STYLES}</style>
+  return <style>{STYLES + NATIVE_DETAILS_STYLES + RICH_PREVIEW_STYLES + DOCUMENT_PREVIEW_STYLES + LAYOUT_OVERRIDE_STYLES + DOCK_STABLE_HEIGHT_STYLES + DOWNLOAD_STYLES}</style>
 }
 
 const HIDDEN_DOC_SECTION_HEADINGS = new Set(['需求原文', '待补充章节'])
@@ -427,7 +804,21 @@ function docFormatLabel(format: string | undefined): string {
 
 function docLeadText(section: { paragraphs: string[]; bullets: string[] } | undefined): string {
   if (!section) return '已根据结构化内容生成文档预览，可在右侧快速浏览章节布局与重点。'
-  return stripInlineMarkdown(section.paragraphs[0] ?? section.bullets[0] ?? '已根据结构化内容生成文档预览，可在右侧快速浏览章节布局与重点。')
+  const text = stripInlineMarkdown(section.paragraphs[0] ?? section.bullets[0] ?? '已根据结构化内容生成文档预览，可在右侧快速浏览章节布局与重点。')
+  return text.length > 260 ? `${text.slice(0, 260)}…` : text
+}
+
+function compactPreviewTitle(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  const head = normalized.split(/[：:。！？]/)[0]?.trim() || normalized
+  return head.length > 42 ? `${head.slice(0, 42)}…` : head
+}
+
+function artifactDisplayTitle(artifact: OfficeArtifact): string {
+  if (artifact.mode === 'doc' || artifact.meta?.kind === 'doc') {
+    return compactPreviewTitle(artifact.meta?.kind === 'doc' ? artifact.meta.title : artifact.title)
+  }
+  return artifact.title
 }
 
 function sectionsFromMarkdown(markdown: string): { heading: string; headingLevel: number; paragraphs: string[]; bullets: string[]; table?: { headers: string[]; rows: string[][] } }[] {
@@ -514,19 +905,27 @@ function toolTitle(toolName: string): string {
   return titles[toolName] ?? toolName
 }
 
-function toolGlyph(toolName: string): string {
-  if (toolName.includes('ppt')) return 'P'
-  if (toolName.includes('doc') || toolName.includes('md')) return 'W'
-  if (toolName.includes('sheet')) return 'X'
-  if (toolName.includes('chart')) return '⌁'
-  if (toolName.includes('drawio')) return '◇'
-  if (toolName.includes('image')) return '▧'
-  if (toolName.includes('video')) return '▶'
-  return 'W'
+function toolGlyph(toolName: string): JSX.Element {
+  return <OfficeTypeIcon mode={modeForToolName(toolName)} />
 }
 
-function modeGlyph(mode: OfficeMode): string {
-  return ({ all: 'W', doc: 'W', sheet: 'X', ppt: 'P', chart: '⌁', drawio: '◇', image: '▧', video: '▶' })[mode]
+function modeGlyph(mode: OfficeMode): JSX.Element {
+  return <OfficeTypeIcon mode={mode} />
+}
+
+function OfficeTypeIcon({ mode }: { mode: OfficeMode }): JSX.Element {
+  const common = { className: 'wo-type-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
+  switch (mode) {
+    case 'doc': return <svg {...common}><path d="M6 3.5h8l4 4V20.5H6z" /><path d="M14 3.5v4h4M9 12h6M9 15.5h6" /></svg>
+    case 'sheet': return <svg {...common}><rect x="4" y="3.5" width="16" height="17" rx="2" /><path d="M4 9h16M4 14h16M10 9v11.5M15 9v11.5" /></svg>
+    case 'ppt': return <svg {...common}><rect x="3.5" y="5" width="17" height="13" rx="2" /><path d="M7 9h6M7 12h4M7 15h8M17.5 5v-2" /></svg>
+    case 'chart': return <svg {...common}><path d="M4 20V10M10 20V5M16 20v-8M22 20H2" /></svg>
+    case 'drawio': return <svg {...common}><circle cx="5" cy="6" r="2.2" /><circle cx="19" cy="6" r="2.2" /><circle cx="12" cy="18" r="2.2" /><path d="m7 7.2 3.4 8.1M17 7.2l-3.4 8.1M7.2 6h9.6" /></svg>
+    case 'image': return <svg {...common}><rect x="3.5" y="4" width="17" height="16" rx="2" /><circle cx="9" cy="9" r="1.5" /><path d="m5.5 17 4.5-4 3 2.5 2-2 5.5 4" /></svg>
+    case 'video': return <svg {...common}><rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="m10 9 5 3-5 3z" /></svg>
+    case 'all': return <svg {...common}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" /><circle cx="12" cy="12" r="3" /></svg>
+    default: return <svg {...common}><rect x="5" y="3.5" width="14" height="17" rx="2" /><path d="M8.5 8h7M8.5 12h7M8.5 16h4" /></svg>
+  }
 }
 
 function modeDescription(mode: OfficeMode): string {

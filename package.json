@@ -1,6 +1,6 @@
 {
   "name": "walioffice-dsh-plugin",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "WaLiOffice 办公工具套件 — DeepSeek Harness (DSH) 插件",
   "type": "module",
   "main": "lib/index.js",

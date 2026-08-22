@@ -20,6 +20,8 @@ export interface ChartOutput {
   series_name: string
 }
 
+type ChartType = 'line' | 'bar' | 'pie' | 'gauge' | 'funnel' | 'scatter'
+
 // ── System prompt ───────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `你是数据分析专家。只输出严格 JSON，不要 markdown 代码块。
@@ -76,7 +78,7 @@ export function apply(ctx: Context): void {
       if (!topic?.trim()) {
         throw new Error('topic 不能为空')
       }
-      const chartType = args.chart_type ?? 'bar'
+      const chartType = normalizeChartType(args.chart_type, inferChartType(topic))
       const office = resolveOfficeService(ctx)
 
       office.emitProgress('running', '生成图表', `正在为《${topic}》生成数据...`)
@@ -88,15 +90,18 @@ export function apply(ctx: Context): void {
         '请生成专业的图表数据，只返回 JSON。',
       ].filter(Boolean).join('\n')
 
-      const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
-      const output = json as unknown as ChartOutput
-
-      if (!output.labels || !output.values || output.labels.length !== output.values.length) {
-        throw new Error('LLM 返回的图表数据格式不正确：labels 和 values 长度不一致')
+      let output: ChartOutput
+      try {
+        const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
+        output = normalizeChartOutput(json, topic, chartType)
+      } catch (error) {
+        office.emitProgress('running', '使用图表模板兜底', 'LLM 未返回可解析内容，已使用内置图表数据继续生成。')
+        output = fallbackChart(topic, chartType)
+        void error
       }
 
       // Build ECharts option
-      const echartsOption = buildEchartsOption(output, chartType)
+      const echartsOption = buildEchartsOption(output, normalizeChartType(output.chart_type, chartType))
 
       return {
         title: output.title,
@@ -112,6 +117,82 @@ export function apply(ctx: Context): void {
 }
 
 // ── ECharts option builder ──────────────────────────────────────────────────
+
+function normalizeChartType(value: unknown, fallback: ChartType): ChartType {
+  return value === 'line' || value === 'bar' || value === 'pie' || value === 'gauge' || value === 'funnel' || value === 'scatter'
+    ? value
+    : fallback
+}
+
+function inferChartType(topic: string): ChartType {
+  if (/占比|比例|分布|构成|份额/.test(topic)) return 'pie'
+  if (/趋势|变化|走势|增长/.test(topic)) return 'line'
+  if (/漏斗/.test(topic)) return 'funnel'
+  if (/仪表盘|仪表|完成率|达成率/.test(topic)) return 'gauge'
+  return 'bar'
+}
+
+function normalizeChartOutput(value: unknown, topic: string, chartType: ChartType): ChartOutput {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('LLM 返回的图表数据不是对象')
+  }
+
+  const raw = value as {
+    title?: unknown
+    summary?: unknown
+    chart_type?: unknown
+    chartType?: unknown
+    labels?: unknown
+    values?: unknown
+    series_name?: unknown
+    seriesName?: unknown
+  }
+  const labels = Array.isArray(raw.labels)
+    ? raw.labels.filter(item => typeof item === 'string' || typeof item === 'number').map(String)
+    : []
+  const values = Array.isArray(raw.values)
+    ? raw.values.map(item => typeof item === 'number' ? item : typeof item === 'string' && item.trim() ? Number(item) : Number.NaN)
+    : []
+
+  if (labels.length === 0 || labels.length !== values.length || values.some(value => !Number.isFinite(value))) {
+    throw new Error('LLM 返回的图表数据格式不正确：labels 和 values 长度或数值不合法')
+  }
+
+  return {
+    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : topic,
+    summary: typeof raw.summary === 'string' ? raw.summary : `围绕“${topic}”生成的${chartType}图表。`,
+    chart_type: normalizeChartType(raw.chart_type ?? raw.chartType, chartType),
+    labels,
+    values,
+    series_name: typeof raw.series_name === 'string'
+      ? raw.series_name
+      : typeof raw.seriesName === 'string' ? raw.seriesName : '数据',
+  }
+}
+
+function fallbackChart(topic: string, chartType: ChartType): ChartOutput {
+  const isLoginTopic = /登录|登陆|认证|登录状态|login/i.test(topic)
+  const isAiTopic = /大语言模型|计算机视觉|自然语言处理|机器学习|强化学习|知识图谱|多模态\s*AI|AI\s*Agent/i.test(topic)
+  const labels = isLoginTopic
+    ? ['登录成功', '密码错误', '账号锁定', '验证码错误', '账号不存在']
+    : isAiTopic
+      ? ['大语言模型', '计算机视觉', '自然语言处理', '机器学习', '强化学习', '知识图谱', '多模态AI', 'AI Agent']
+      : ['类别一', '类别二', '类别三', '类别四']
+  const values = isLoginTopic ? [68, 12, 5, 9, 6] : isAiTopic ? [25, 18, 15, 14, 8, 7, 8, 5] : [100, 80, 60, 40]
+
+  return {
+    title: isLoginTopic ? '登录状态分布' : isAiTopic ? 'AI技术领域占比分布' : topic,
+    summary: isLoginTopic
+      ? '登录成功占比最高，失败原因主要集中在密码错误和验证码错误。'
+      : isAiTopic
+        ? '大语言模型和计算机视觉占比较高，其他 AI 技术方向保持多元分布。'
+        : `围绕“${topic}”整理的示例数据，可继续替换为真实业务数据。`,
+    chart_type: chartType,
+    labels,
+    values,
+    series_name: '数量（%）',
+  }
+}
 
 function buildEchartsOption(output: ChartOutput, chartType: string): Record<string, unknown> {
   const base = {

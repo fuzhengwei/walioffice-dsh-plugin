@@ -23,6 +23,12 @@ export interface OfficeArtifact {
   meta?: OfficeArtifactMeta
 }
 
+export interface OfficeDownload {
+  fileName: string
+  mimeType: string
+  base64: string
+}
+
 export type OfficeArtifactMeta =
   | { kind: 'chart'; title: string; chartType: string; labels: string[]; values: number[]; seriesName: string; summary?: string }
   | {
@@ -30,6 +36,7 @@ export type OfficeArtifactMeta =
     title: string
     markdown: string
     filePath?: string
+    download?: OfficeDownload
     sectionCount?: number
     format?: string
     sections?: {
@@ -40,11 +47,12 @@ export type OfficeArtifactMeta =
       table?: { headers: string[]; rows: string[][] }
     }[]
   }
-  | { kind: 'markdown'; title: string; markdown: string; filePath?: string }
+  | { kind: 'markdown'; title: string; markdown: string; filePath?: string; download?: OfficeDownload }
   | {
     kind: 'sheet'
     title?: string
     filePath?: string
+    download?: OfficeDownload
     tableCount?: number
     totalRows?: number
     tables?: {
@@ -55,8 +63,8 @@ export type OfficeArtifactMeta =
       summary?: string
     }[]
   }
-  | { kind: 'ppt'; title: string; filePath?: string; slideCount: number; slides?: { index: number; layout?: string; title?: string; goal?: string; points?: string[]; elements?: unknown[] }[] }
-  | { kind: 'drawio'; title: string; diagramType: string; xml: string }
+  | { kind: 'ppt'; title: string; filePath?: string; download?: OfficeDownload; slideCount: number; slides?: { index: number; layout?: string; background?: string; title?: string; goal?: string; visual?: string; points?: string[]; elements?: { shape?: { x: number; y: number; w: number; h: number; fill?: string; shapeType?: string; line?: { color?: string; width?: number } }; text?: { content: string; x: number; y: number; w: number; h: number; fontSize?: number; color?: string; bold?: boolean; align?: string; valign?: string }; table?: { x: number; y: number; w: number; headers: string[]; rows: string[][] } }[] }[] }
+  | { kind: 'drawio'; title: string; diagramType: string; xml: string; download?: OfficeDownload }
   | { kind: 'image'; title: string; images: { url: string; style: string }[]; generationMode?: string; provider?: string; model?: string }
   | { kind: 'video'; title: string; videoUrl: string; duration?: number; aspectRatio?: string; mode?: string; provider?: string; model?: string }
   | { kind: 'storyboard'; title: string; totalShots: number; totalSeconds: number; aspectRatio?: string; shots: { index?: number; title?: string; description?: string; prompt?: string; seconds?: number; mode?: string }[] }
@@ -64,7 +72,7 @@ export type OfficeArtifactMeta =
 
 export const OFFICE_MODES: readonly OfficeModeDefinition[] = [
   { id: 'all', label: '综合办公', shortLabel: '综合', color: '#111827', prompt: '请根据我的需求选择合适的办公工具并生成可交付成果：' },
-  { id: 'doc', label: 'Word 文档', shortLabel: 'Word', color: '#16a34a', prompt: '请使用 doc_generate 生成一份专业 Word 文档：' },
+  { id: 'doc', label: 'Word 文档', shortLabel: 'Word', color: '#16a34a', prompt: '请只使用 doc_generate（不要使用 md_generate）生成一份专业 Word 文档（.docx）：' },
   { id: 'sheet', label: 'Excel 表格', shortLabel: 'Excel', color: '#059669', prompt: '请使用 sheet_generate 生成一份结构化 Excel 表格：' },
   { id: 'ppt', label: 'PPT 演示', shortLabel: 'PPT', color: '#2563eb', prompt: '请先规划并使用 ppt_generate 生成一份完整 PPT：' },
   { id: 'chart', label: '数据图表', shortLabel: '图表', color: '#7c3aed', prompt: '请使用 chart_generate 生成一份清晰的数据图表：' },
@@ -108,6 +116,10 @@ export function openOfficePanel(artifactId?: string): void {
   window.dispatchEvent(new CustomEvent(OFFICE_PANEL_EVENT, { detail: { open: true, artifactId } }))
 }
 
+export function toggleOfficePanel(): void {
+  window.dispatchEvent(new CustomEvent(OFFICE_PANEL_EVENT, { detail: { toggle: true } }))
+}
+
 export function publishArtifact(artifact: OfficeArtifact): void {
   window.dispatchEvent(new CustomEvent<OfficeArtifact>(OFFICE_ARTIFACT_EVENT, { detail: artifact }))
   if (!artifact.isError) openOfficePanel(artifact.id)
@@ -131,7 +143,7 @@ export function artifactFromTool(toolName: string, callId: string, block: ToolCa
     id: callId,
     toolName,
     mode,
-    title: topic || metaTitle(block.meta) || fileName(filePath) || definition.label,
+    title: metaTitle(block.meta) || topic || fileName(filePath) || definition.label,
     summary: metaSummary(block.meta) || summary,
     filePath,
     output,

@@ -6,7 +6,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
+import { createOfficeDownload, inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 import { renderDocx } from '@walioffice/dsh-office-render-docx'
 import { resolve } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -54,6 +54,74 @@ function formatGuide(format: string, scene: ReturnType<typeof inferScene>): stri
   return guides[format] ?? guides.report ?? '输出正式报告格式。'
 }
 
+function compactTitle(topic: string): string {
+  const normalized = topic.replace(/\s+/g, ' ').trim()
+  const head = normalized.split(/[：:。！？]/)[0]?.trim() || normalized
+  return head.slice(0, 36) || 'WaLiOffice 文档'
+}
+
+function cleanDocText(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
+}
+
+function isTopicEcho(text: string, topicText: string): boolean {
+  if (!text || !topicText) return false
+  if (text === topicText) return true
+  return topicText.length >= 24 && text.length >= topicText.length && text.startsWith(topicText)
+}
+
+function normalizeDocOutput(value: unknown, topic: string, format: string): DocOutput {
+  if (typeof value !== 'object' || value === null) throw new Error('LLM 返回的文档格式不正确')
+  const source = value as { title?: unknown; sections?: unknown }
+  if (!Array.isArray(source.sections)) throw new Error('LLM 返回的文档格式不正确')
+
+  const topicText = cleanDocText(topic)
+  const sections = source.sections.map((item, index) => {
+    const section = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+    const paragraphs = Array.isArray(section.paragraphs)
+      ? section.paragraphs.map(cleanDocText).filter(text => text && !isTopicEcho(text, topicText)).filter((text, textIndex, all) => all.indexOf(text) === textIndex).slice(0, 4)
+      : []
+    const bullets = Array.isArray(section.bullets)
+      ? section.bullets.map(cleanDocText).filter(Boolean).filter((text, textIndex, all) => all.indexOf(text) === textIndex).slice(0, 8)
+      : []
+    const rawTable = section.table && typeof section.table === 'object' ? section.table as Record<string, unknown> : undefined
+    const headers = Array.isArray(rawTable?.headers) ? rawTable.headers.map(cleanDocText).filter(Boolean) : []
+    const rows = Array.isArray(rawTable?.rows)
+      ? rawTable.rows.filter(row => Array.isArray(row)).map(row => (row as unknown[]).map(cleanDocText)).filter(row => row.length > 0)
+      : []
+    return {
+      heading: cleanDocText(section.heading) || `第 ${index + 1} 部分`,
+      heading_level: typeof section.heading_level === 'number' ? Math.max(1, Math.min(3, Math.round(section.heading_level))) : 1,
+      paragraphs,
+      bullets,
+      ...(headers.length > 0 && rows.length > 0 ? { table: { headers, rows } } : {}),
+    }
+  }).filter(section => section.paragraphs.length > 0 || section.bullets.length > 0 || section.table)
+
+  if (sections.length < 3) throw new Error('LLM 返回的文档章节不足')
+  const rawTitle = cleanDocText(source.title)
+  const title = rawTitle && rawTitle.length <= 48 && !rawTitle.includes(topicText) ? rawTitle : compactTitle(topic)
+  return { title, sections, format, markdown: '' }
+}
+
+function fallbackDoc(topic: string, format: string, audience: string): DocOutput {
+  const audienceText = audience || '相关管理者、执行人员与协作团队'
+  const subject = compactTitle(topic)
+  return {
+    title: subject,
+    format,
+    markdown: '',
+    sections: [
+      { heading: '摘要', heading_level: 1, paragraphs: [`本文围绕“${subject}”展开，面向${audienceText}，系统梳理背景、目标、重点内容、实施安排与保障措施，为后续讨论、执行和复盘提供统一依据。`], bullets: ['明确主题范围与核心目标', '形成可执行的工作框架', '为后续协作和评估提供依据'] },
+      { heading: '背景与目标', heading_level: 1, paragraphs: [`当前需要围绕“${subject}”建立清晰、完整且可落地的工作方案。通过统一目标、边界和协作方式，可以减少信息偏差，提升执行效率，并让阶段性成果能够被持续追踪和复用。`], bullets: ['明确建设背景与现实需求', '统一参与方对目标和范围的理解', '定义可观察、可复盘的阶段成果'] },
+      { heading: '核心内容', heading_level: 1, paragraphs: [`围绕主题推进时，应优先处理影响结果的关键事项，并将复杂工作拆分为清晰的任务单元。每项任务都需要明确负责人、输入条件、交付结果和检查方式，确保方案能够从讨论顺利进入执行。`], bullets: ['梳理关键任务与优先级', '明确角色分工和协作边界', '沉淀过程资料和交付标准'], table: { headers: ['工作模块', '重点内容', '交付结果'], rows: [['目标定义', '统一目标、范围与优先级', '目标说明与范围清单'], ['方案设计', '拆分任务、流程和资源', '执行方案与任务列表'], ['结果评估', '跟踪进度、质量和效果', '阶段复盘与改进建议']] } },
+      { heading: '实施安排', heading_level: 1, paragraphs: ['实施阶段建议采用“准备—执行—检查—优化”的闭环方式推进。先完成基础信息和资源准备，再按优先级执行重点任务，并通过阶段检查及时识别偏差，最后将有效经验沉淀为后续工作的标准做法。'], bullets: ['准备阶段：确认人员、资料、资源和时间安排', '执行阶段：按任务清单推进并记录过程', '检查阶段：对照目标检查质量和进度', '优化阶段：根据结果调整方案和资源'] },
+      { heading: '风险与保障', heading_level: 1, paragraphs: [`为保证“${subject}”相关工作稳定推进，需要提前识别信息不足、资源变动、协作延迟和质量偏差等风险，并设置明确的沟通、检查和升级机制。所有重要结论应保留记录，便于追踪责任和持续改进。`], bullets: ['建立定期同步和异常反馈机制', '为关键任务设置备选方案', '对重要交付物执行复核和版本管理'], table: { headers: ['风险项', '影响', '应对措施'], rows: [['需求变化', '范围和计划出现偏差', '建立变更记录与评审机制'], ['资源不足', '关键任务延期', '提前识别依赖并准备替代资源'], ['质量波动', '交付结果不稳定', '设置检查清单和验收标准']] } },
+      { heading: '结论与下一步', heading_level: 1, paragraphs: [`综合来看，“${subject}”应以明确目标为起点，以任务拆解和过程协作为抓手，以阶段检查和结果复盘形成闭环。下一步建议先确认范围和负责人，再完成首轮任务排期，并根据实际反馈持续优化执行方案。`], bullets: ['确认最终目标、范围和优先级', '落实负责人、时间节点与交付标准', '安排首轮检查并形成复盘记录'] },
+    ],
+  }
+}
+
 // ── Markdown conversion ─────────────────────────────────────────────────────
 
 function sectionsToMarkdown(doc: DocOutput): string {
@@ -77,6 +145,20 @@ function sectionsToMarkdown(doc: DocOutput): string {
     }
   }
   return lines.join('\n')
+}
+
+function normalizeMarkdownOutput(value: unknown, topic: string): { title: string; markdown: string; summary?: string } {
+  if (typeof value !== 'object' || value === null) throw new Error('LLM 返回的 Markdown 格式不正确')
+  const source = value as { title?: unknown; markdown?: unknown; summary?: unknown }
+  const markdown = typeof source.markdown === 'string' ? source.markdown.trim() : ''
+  if (!markdown || markdown.length < 80) throw new Error('LLM 返回的 Markdown 内容不足')
+  const rawTitle = cleanDocText(source.title)
+  const title = rawTitle && rawTitle.length <= 48 && !rawTitle.includes(cleanDocText(topic)) ? rawTitle : compactTitle(topic)
+  return {
+    title,
+    markdown,
+    ...(typeof source.summary === 'string' && source.summary.trim() ? { summary: source.summary.trim() } : {}),
+  }
 }
 
 // ── doc_generate tool ───────────────────────────────────────────────────────
@@ -124,6 +206,7 @@ export function apply(ctx: Context): void {
           title: { type: 'string', required: true },
           sectionCount: { type: 'integer', required: true },
           filePath: { type: 'string', required: true },
+          download: { type: 'object' },
           format: { type: 'string' },
           markdown: { type: 'string' },
           sections: { type: 'array' },
@@ -163,31 +246,11 @@ export function apply(ctx: Context): void {
       let doc: DocOutput
       try {
         const json = await llmGenerateJson(ctx, DOC_SYSTEM_PROMPT, userPrompt)
-        doc = json as unknown as DocOutput
-        if (!doc.title || !Array.isArray(doc.sections)) {
-          throw new Error('LLM 返回的文档格式不正确')
-        }
+        doc = normalizeDocOutput(json, topic, format)
       } catch (err) {
-        // Fallback
-        doc = {
-          title: topic.slice(0, 32),
-          format,
-          sections: [
-            {
-              heading: '需求原文',
-              heading_level: 1,
-              paragraphs: [topic],
-              bullets: [],
-            },
-            {
-              heading: '待补充章节',
-              heading_level: 1,
-              paragraphs: [`文档生成过程中出现错误：${err instanceof Error ? err.message : String(err)}`],
-              bullets: ['请补充核心内容', '请补充结构化说明'],
-            },
-          ],
-          markdown: '',
-        }
+        office.emitProgress('running', '使用文档模板兜底', 'LLM 未返回可解析内容，已使用内置文档结构继续生成。')
+        doc = fallbackDoc(topic, format, audience)
+        void err
       }
 
       // Generate markdown
@@ -196,11 +259,13 @@ export function apply(ctx: Context): void {
       // Render to .docx
       office.emitProgress('running', '导出 Word', '正在生成 .docx 文件...')
       const filePath = await renderDocx(ctx, doc)
+      const download = await createOfficeDownload(filePath, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
       return {
         title: doc.title,
         sectionCount: doc.sections.length,
         filePath,
+        download,
         format,
         markdown: doc.markdown,
         sections: doc.sections.map((section): DocPreviewSection => ({
@@ -214,7 +279,7 @@ export function apply(ctx: Context): void {
               rows: section.table.rows.slice(0, 8),
             },
           } : {}),
-        })),
+        })) as any,
       }
     },
   }))
@@ -236,7 +301,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'md_generate',
-    description: '生成 Markdown 文档：适合知识库、README、说明文档、会议纪要、调研整理、操作手册等纯文本结构化内容，可下载 .md 文件。',
+    description: '仅生成 Markdown（.md）文件，适合知识库、README、说明文档、会议纪要、调研整理、操作手册；不要用于 Word 或 .docx，Word 必须调用 doc_generate。',
     parameters: {
       topic: { type: 'string', required: true, description: 'Markdown 文档主题/用户需求' },
       style: {
@@ -253,6 +318,7 @@ export function apply(ctx: Context): void {
         properties: {
           title: { type: 'string', required: true },
           filePath: { type: 'string', required: true },
+          download: { type: 'object' },
           markdown: { type: 'string', required: true },
         },
       },
@@ -295,12 +361,15 @@ export function apply(ctx: Context): void {
       let result: { title: string; markdown: string; summary?: string }
       try {
         const json = await llmGenerateJson(ctx, MD_SYSTEM_PROMPT, userPrompt)
-        result = json as unknown as typeof result
+        result = normalizeMarkdownOutput(json, topic)
       } catch (err) {
+        const fallback = fallbackDoc(topic, 'article', audience)
         result = {
-          title: topic.slice(0, 32),
-          markdown: `# ${topic}\n\n## 待补充\n\n- 请补充核心内容\n- 请补充结构化说明\n\n> 当前为降级草稿：${err instanceof Error ? err.message : String(err)}`,
+          title: fallback.title,
+          markdown: sectionsToMarkdown(fallback),
+          summary: '已使用 WaLiOffice 内置结构完成文档内容生成。',
         }
+        void err
       }
 
       // Write .md file
@@ -309,10 +378,12 @@ export function apply(ctx: Context): void {
       const filename = `${result.title.replace(/[^\w\u4e00-\u9fff]/g, '_')}_${Date.now()}.md`
       const filePath = resolve(outputDir, filename)
       await writeFile(filePath, result.markdown, 'utf-8')
+      const download = await createOfficeDownload(filePath, 'text/markdown;charset=utf-8')
 
       return {
         title: result.title,
         filePath,
+        download,
         markdown: result.markdown,
       }
     },

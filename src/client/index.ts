@@ -3,7 +3,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import { OfficeDetailsPanel, OfficeDock, OfficeToolView } from './OfficeUI.tsx'
-import { OFFICE_PANEL_EVENT, OFFICE_TOOLS } from './office-state.ts'
+import { OFFICE_PANEL_EVENT, OFFICE_TOOLS, toggleOfficePanel } from './office-state.ts'
 
 export const inject = ['slots', 'layout']
 
@@ -22,7 +22,15 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => {
     const onPanel = (event: Event): void => {
-      const detail = (event as CustomEvent<{ open?: boolean }>).detail
+      const detail = (event as CustomEvent<{ open?: boolean; toggle?: boolean }>).detail
+      if (detail?.toggle) {
+        if (isOfficeDetailsOpen()) layout.closeDetails()
+        else {
+          layout.openDetails()
+          window.requestAnimationFrame(() => widenOfficeDetails())
+        }
+        return
+      }
       if (detail?.open === false) layout.closeDetails()
       else {
         layout.openDetails()
@@ -38,7 +46,10 @@ export function apply(ctx: ClientContext): void {
       name: 'conversation.input.dock',
       id: 'walioffice-dock',
       order: 80,
-      inject: () => ({ openOfficeDetails: () => layout.openDetails() }),
+      inject: () => ({
+        openOfficeDetails: () => layout.openDetails(),
+        toggleOfficeDetails: () => toggleOfficePanel(),
+      }),
     },
     OfficeDock,
   ))
@@ -58,11 +69,7 @@ export function apply(ctx: ClientContext): void {
 }
 
 function widenOfficeDetails(): void {
-  const panel = document.querySelector<HTMLElement>('.wo-panel')
-  if (!panel) return
-
-  let frame: HTMLElement | null = panel
-  while (frame && !frame.style.gridTemplateColumns) frame = frame.parentElement
+  const frame = findOfficeFrame()
   if (!frame) return
 
   const viewport = frame.getBoundingClientRect().width
@@ -79,4 +86,20 @@ function widenOfficeDetails(): void {
     `${sidebar}px minmax(0, ${center}px) ${details}px`,
     'important',
   )
+}
+
+function findOfficeFrame(): HTMLElement | null {
+  const panel = document.querySelector<HTMLElement>('.wo-panel')
+  if (!panel) return null
+  let frame: HTMLElement | null = panel
+  while (frame && !frame.style.gridTemplateColumns) frame = frame.parentElement
+  return frame
+}
+
+function isOfficeDetailsOpen(): boolean {
+  const frame = findOfficeFrame()
+  if (!frame || frame.hasAttribute('data-details-collapsed')) return false
+  const columns = getComputedStyle(frame).gridTemplateColumns.split(/\s+/)
+  const details = Number.parseFloat(columns.at(-1) ?? '')
+  return Number.isFinite(details) && details > 0
 }

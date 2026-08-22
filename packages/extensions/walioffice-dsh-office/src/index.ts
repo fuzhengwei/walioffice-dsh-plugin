@@ -15,6 +15,8 @@ import type { Context, Service } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { JsonValue } from '@deepseek-ai/dsh-session'
+import { basename } from 'node:path'
+import { readFile } from 'node:fs/promises'
 
 // ── Artifact types ──────────────────────────────────────────────────────────
 
@@ -22,6 +24,29 @@ export interface OfficeArtifact {
   kind: string
   title: string
   content: JsonValue
+}
+
+export interface OfficeDownload {
+  fileName: string
+  mimeType: string
+  base64: string
+}
+
+export async function createOfficeDownload(filePath: string, mimeType: string): Promise<OfficeDownload> {
+  const content = await readFile(filePath)
+  return {
+    fileName: basename(filePath),
+    mimeType,
+    base64: content.toString('base64'),
+  }
+}
+
+export function createTextOfficeDownload(fileName: string, content: string, mimeType: string): OfficeDownload {
+  return {
+    fileName: fileName.replace(/[\\/:*?"<>|]/g, '_').trim() || 'office-file',
+    mimeType,
+    base64: Buffer.from(content, 'utf8').toString('base64'),
+  }
 }
 
 // ── Tool context (passed through ToolExecution.agent) ───────────────────────
@@ -144,24 +169,30 @@ export interface Palette {
 export function getThemePalettes(theme: string): Palette[] {
   const themes: Record<string, Palette[]> = {
     business: [
-      { name: 'navy', bg: 'F8FAFC', card: 'FFFFFF', primary: '1E3A5F', accent: '3B82F6', dark: '1E293B' },
-      { name: 'steel', bg: 'F1F5F9', card: 'FFFFFF', primary: '334155', accent: '64748B', dark: '0F172A' },
+      { name: 'navy', bg: 'F8FAFC', card: 'FFFFFF', primary: '1D4ED8', accent: '60A5FA', dark: '0F172A' },
+      { name: 'steel', bg: 'EFF6FF', card: 'FFFFFF', primary: '0F4C81', accent: '93C5FD', dark: '111827' },
+      { name: 'slate', bg: 'F1F5F9', card: 'FFFFFF', primary: '334155', accent: '38BDF8', dark: '0F172A' },
     ],
     tech: [
-      { name: 'cyber', bg: '0F172A', card: '1E293B', primary: '06B6D4', accent: '8B5CF6', dark: 'F1F5F9' },
-      { name: 'matrix', bg: '0C4A1E', card: '14532D', primary: '22C55E', accent: 'FCD34D', dark: 'F0FDF4' },
+      { name: 'cyber', bg: '0B1220', card: '1E2A3D', primary: '06B6D4', accent: '8B5CF6', dark: 'F8FAFC' },
+      { name: 'matrix', bg: '0B1120', card: '172A2D', primary: '22D3EE', accent: '34D399', dark: 'E5E7EB' },
+      { name: 'indigo', bg: '111827', card: '1F2937', primary: '818CF8', accent: '22D3EE', dark: 'F9FAFB' },
     ],
     warm: [
-      { name: 'sunset', bg: 'FEF3C7', card: 'FFFFFF', primary: 'EA580C', accent: 'F59E0B', dark: '7C2D12' },
-      { name: 'rose', bg: 'FDF2F8', card: 'FFFFFF', primary: 'BE185D', accent: 'EC4899', dark: '831843' },
+      { name: 'sunset', bg: 'FFF7ED', card: 'FFFFFF', primary: 'EA580C', accent: 'FDBA74', dark: '431407' },
+      { name: 'amber', bg: 'FEF3C7', card: 'FFFBEB', primary: 'D97706', accent: 'F59E0B', dark: '422006' },
+      { name: 'rose', bg: 'FFF1F2', card: 'FFFFFF', primary: 'E11D48', accent: 'FDA4AF', dark: '4C0519' },
     ],
     minimal: [
-      { name: 'mono', bg: 'FFFFFF', card: 'F8FAFC', primary: '1E293B', accent: '64748B', dark: '0F172A' },
-      { name: 'paper', bg: 'FAFAF9', card: 'FFFFFF', primary: '44403C', accent: 'A8A29E', dark: '292524' },
+      { name: 'mono', bg: 'FFFFFF', card: 'F8FAFC', primary: '111827', accent: 'CBD5E1', dark: '111827' },
+      { name: 'paper', bg: 'FAFAFA', card: 'FFFFFF', primary: '27272A', accent: 'A1A1AA', dark: '18181B' },
+      { name: 'stone', bg: 'F4F4F5', card: 'FFFFFF', primary: '3F3F46', accent: 'D4D4D8', dark: '18181B' },
     ],
     default: [
-      { name: 'classic', bg: 'F8FAFC', card: 'FFFFFF', primary: '2563EB', accent: '3B82F6', dark: '1E293B' },
-      { name: 'ocean', bg: 'EFF6FF', card: 'FFFFFF', primary: '1D4ED8', accent: '60A5FA', dark: '1E3A5F' },
+      { name: 'classic', bg: 'F8FAFC', card: 'FFFFFF', primary: '2563EB', accent: '38BDF8', dark: '0F172A' },
+      { name: 'warm', bg: 'FFF7ED', card: 'FFFFFF', primary: 'EA580C', accent: 'FDBA74', dark: '111827' },
+      { name: 'teal', bg: 'F0FDFA', card: 'FFFFFF', primary: '0F766E', accent: '5EEAD4', dark: '0F172A' },
+      { name: 'violet', bg: 'F5F3FF', card: 'FFFFFF', primary: '7C3AED', accent: 'C4B5FD', dark: '111827' },
     ],
   }
   return themes[theme] ?? themes['default']!
@@ -221,14 +252,17 @@ export async function llmGenerateJson(
  */
 async function collectText(stream: AsyncIterable<StreamChunk>): Promise<string> {
   let text = ''
+  let completedText = ''
   for await (const chunk of stream) {
     if (chunk.type === 'text-delta') {
       text += chunk.text
+    } else if (chunk.type === 'block-end' && chunk.block.type === 'text') {
+      completedText += chunk.block.text
     } else if (chunk.type === 'finish') {
       break
     }
   }
-  return text
+  return text || completedText
 }
 
 /**
