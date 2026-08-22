@@ -8,6 +8,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { llmGenerateJson, resolveOfficeService } from '@walioffice/dsh-office'
+import { readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -64,25 +67,172 @@ interface VideoConfig {
   model: string
 }
 
-function resolveVideoConfig(): VideoConfig {
+interface VideoProviderProfile {
+  baseUrl: string
+  apiKeys: string[]
+  models: string[]
+}
+
+const VIDEO_MODEL = 'agnes-video-2.5'
+
+function resolveVideoConfig(ctx: Context): VideoConfig {
   const baseUrl = process.env.AGNES_VIDEO_BASE_URL || process.env.LLM_VIDEO_BASE_URL || ''
-  const apiKeys = (
+  const explicitApiKeys = (
     process.env.AGNES_VIDEO_API_KEYS?.split(',').map(k => k.trim()).filter(Boolean) ||
     process.env.LLM_VIDEO_API_KEYS?.split(',').map(k => k.trim()).filter(Boolean) ||
     (process.env.LLM_VIDEO_API_KEY ? [process.env.LLM_VIDEO_API_KEY] : [])
   )
-  const model = process.env.AGNES_VIDEO_MODEL || 'agnes-video-v2.5'
+  const discovered = discoverVideoProvider(ctx, VIDEO_MODEL)
 
-  if (!baseUrl || apiKeys.length === 0) {
+  if (!discovered) {
+    throw new Error(
+      `未在 DSH 模型配置中找到视频模型 ${VIDEO_MODEL}。\n` +
+      '请先申请该模型，然后在 ~/.dsh/settings.yaml 的 llm-pi-ai.providers.models 中配置它，再重试。'
+    )
+  }
+
+  const resolvedBaseUrl = baseUrl || discovered.baseUrl
+  const apiKeys = explicitApiKeys.length > 0 ? explicitApiKeys : discovered.apiKeys
+
+  if (!resolvedBaseUrl || apiKeys.length === 0) {
     throw new Error(
       '视频生成需要配置环境变量：\n' +
       '  AGNES_VIDEO_BASE_URL (或 LLM_VIDEO_BASE_URL) — API 地址\n' +
       '  AGNES_VIDEO_API_KEYS (或 LLM_VIDEO_API_KEY) — API 密钥\n' +
-      '可在 .env 文件或系统环境变量中设置。'
+      '也可以在 DSH 的 ~/.dsh/settings.yaml 配置视频模型，并在 ~/.dsh/.credentials.yaml 中提供 apiKeyEnv 对应的密钥。'
     )
   }
 
-  return { baseUrl, apiKeys, model }
+  return { baseUrl: resolvedBaseUrl, apiKeys, model: VIDEO_MODEL }
+}
+
+function discoverVideoProvider(ctx: Context, requestedModel: string): VideoProviderProfile | undefined {
+  const settingsService = (ctx as unknown as { get?: (key: string) => unknown }).get?.('settings') as {
+    get?: (namespace: string) => unknown
+  } | undefined
+  const serviceSettings = asRecord(settingsService?.get?.('llm-pi-ai'))
+  const fileSettings = readDshSettings()
+  const providers = mergeProviders(
+    asRecord(fileSettings?.providers),
+    asRecord(serviceSettings?.providers),
+  )
+  if (!providers) return undefined
+
+  const credentials = readDshCredentials()
+  const entries = Object.values(providers)
+    .map(value => readVideoProviderProfile(value, credentials))
+    .filter((item): item is VideoProviderProfile => item !== undefined)
+  return entries.find(entry => entry.models.includes(requestedModel.trim()))
+}
+
+function readVideoProviderProfile(value: unknown, credentials: Record<string, string>): VideoProviderProfile | undefined {
+  const profile = asRecord(value)
+  if (!profile) return undefined
+  const baseUrl = typeof profile.baseURL === 'string'
+    ? profile.baseURL.trim()
+    : typeof profile.baseUrl === 'string'
+      ? profile.baseUrl.trim()
+      : ''
+  const models = Array.isArray(profile.models)
+    ? profile.models.map(item => {
+      if (typeof item === 'string') return item.trim()
+      return typeof asRecord(item)?.id === 'string' ? String(asRecord(item)?.id).trim() : ''
+    }).filter(Boolean)
+    : []
+  const apiKeyEnv = typeof profile.apiKeyEnv === 'string' ? profile.apiKeyEnv.trim() : ''
+  const apiKeysEnv = typeof profile.apiKeysEnv === 'string' ? profile.apiKeysEnv.trim() : ''
+  const apiKeys = [...new Set(`${apiKeyEnv},${apiKeysEnv},AGNES_AI_API_KEY`
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .flatMap(name => (process.env[name] ?? credentials[name])?.split(',').map(key => key.trim()).filter(Boolean) ?? []))]
+  if (!baseUrl && apiKeys.length === 0 && models.length === 0) return undefined
+  return { baseUrl, apiKeys, models }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
+function mergeProviders(
+  fileProviders: Record<string, unknown> | undefined,
+  serviceProviders: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const names = new Set([...Object.keys(fileProviders ?? {}), ...Object.keys(serviceProviders ?? {})])
+  if (names.size === 0) return undefined
+  return Object.fromEntries([...names].map(name => [
+    name,
+    { ...asRecord(fileProviders?.[name]), ...asRecord(serviceProviders?.[name]) },
+  ]))
+}
+
+function readDshSettings(): Record<string, unknown> | undefined {
+  try {
+    const text = readFileSync(join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'settings.yaml'), 'utf8')
+    const providers: Record<string, Record<string, unknown>> = {}
+    let inLlm = false
+    let inProviders = false
+    let current: Record<string, unknown> | undefined
+
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.replace(/\s+#.*$/, '')
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const indent = line.length - line.trimStart().length
+      if (indent === 0) {
+        inLlm = trimmed === 'llm-pi-ai:'
+        inProviders = false
+        current = undefined
+        continue
+      }
+      if (!inLlm) continue
+      if (indent === 2 && trimmed === 'providers:') {
+        inProviders = true
+        continue
+      }
+      if (!inProviders) continue
+      if (indent === 4 && trimmed.endsWith(':')) {
+        current = {}
+        providers[trimmed.slice(0, -1).trim()] = current
+        continue
+      }
+      if (!current) continue
+      if (indent === 6 && trimmed.includes(':')) {
+        const separator = trimmed.indexOf(':')
+        const key = trimmed.slice(0, separator).trim()
+        const value = trimmed.slice(separator + 1).trim()
+        if (value) current[key] = unquote(value)
+        continue
+      }
+      if (indent >= 8 && trimmed.startsWith('- id:')) {
+        const model = trimmed.slice(5).trim()
+        const models = Array.isArray(current.models) ? current.models as unknown[] : []
+        models.push({ id: unquote(model) })
+        current.models = models
+      }
+    }
+    return { providers }
+  } catch {
+    return undefined
+  }
+}
+
+function readDshCredentials(): Record<string, string> {
+  try {
+    const text = readFileSync(join(process.env.DSH_HOME || join(homedir(), '.dsh'), '.credentials.yaml'), 'utf8')
+    return Object.fromEntries(text.split(/\r?\n/).flatMap(line => {
+      const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/)
+      return match ? [[match[1]!, unquote(match[2]!)] as const] : []
+    }))
+  } catch {
+    return {}
+  }
+}
+
+function unquote(value: string): string {
+  return value.replace(/^(['"])(.*)\1$/, '$2').trim()
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -260,7 +410,7 @@ export function apply(ctx: Context): void {
       const videos = (args.video_urls ?? []).filter(Boolean)
       const mode = inferMode(images.length, args.mode)
 
-      const config = resolveVideoConfig()
+      const config = resolveVideoConfig(ctx)
 
       office.emitProgress('running', '创建视频任务', `正在创建 ${mode} 模式视频任务...`)
 

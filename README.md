@@ -83,6 +83,8 @@ export WALIOFFICE_LLM_MODEL=deepseek-chat
 
 图片与视频生成是可选能力，需要额外配置 Agnes API：
 
+图片生成会优先从 DSH 的 `~/.dsh/settings.yaml`（`llm-pi-ai.providers`）中查找包含 `image` 的模型，读取对应的 `baseURL`，并从 `~/.dsh/.credentials.yaml` 读取 provider 的 `apiKeyEnv` 对应密钥。例如配置了 `agnes-ai` provider 和 `agnes-image-2.1-flash` 后，无需再重复设置图片地址；如果需要覆盖 DSH 配置，仍可使用以下环境变量：
+
 ```bash
 export AGNES_IMAGE_BASE_URL=https://your-image-api.example.com
 export AGNES_IMAGE_API_KEYS=key-1,key-2

@@ -100,10 +100,10 @@ const LAYOUT_OVERRIDE_STYLES = `
 .wo-artifact-copy strong{font-size:13px}
 .wo-artifact-copy small{font-size:11px}
 .wo-mode-button{padding:0 12px;flex:0 0 auto}
-.wo-panel{width:min(760px,calc(100vw - 56px))}
+.wo-panel{width:min(880px,calc(100vw - 40px))!important;max-width:none!important}
 @media(max-width:760px){
   .wo-dock{width:calc(100% - 16px)!important;min-width:0!important;min-height:52px!important;padding:8px 10px!important}
-  .wo-panel{width:calc(100vw - 16px)}
+  .wo-panel{width:calc(100vw - 16px)!important}
   .wo-preview-switcher{padding:8px 12px 0}
 }
 `
@@ -304,14 +304,13 @@ function ArtifactRichPreview({ artifact }: { artifact: OfficeArtifact }): JSX.El
 }
 
 function DocPreview({ meta }: { meta: Extract<OfficeArtifactMeta, { kind: 'doc' }> }): JSX.Element {
-  const sections = (meta.sections?.length ? meta.sections : sectionsFromMarkdown(meta.markdown))
-    .filter(section => !HIDDEN_DOC_SECTION_HEADINGS.has(section.heading.trim()))
+  const sections = meta.sections?.length ? meta.sections : sectionsFromMarkdown(meta.markdown)
   const lead = sections[0]
   return <div className="wo-rich">
     <div className="wo-doc-surface"><div className="wo-doc-page">
       <div className="wo-doc-hero"><span className="wo-doc-badge">Word 预览</span><h1>{meta.title}</h1><p>{docLeadText(lead)}</p></div>
       {sections.slice(0, 5).map((section, index) => <section key={`${section.heading}-${index}`} className="wo-doc-section">
-        {section.headingLevel > 1 ? <h3>{section.heading}</h3> : <h2>{section.heading}</h2>}
+        {!HIDDEN_DOC_SECTION_HEADINGS.has(section.heading.trim()) && (section.headingLevel > 1 ? <h3>{section.heading}</h3> : <h2>{section.heading}</h2>)}
         {section.paragraphs.slice(0, 2).map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{stripInlineMarkdown(paragraph)}</p>)}
         {section.bullets.length > 0 && <ul className="wo-doc-bullets">{section.bullets.slice(0, 5).map((bullet, bulletIndex) => <li key={bulletIndex}>{stripInlineMarkdown(bullet)}</li>)}</ul>}
         {section.table && <div className="wo-table-wrap"><table className="wo-table"><thead><tr>{section.table.headers.map(header => <th key={header}>{stripInlineMarkdown(header)}</th>)}</tr></thead><tbody>{section.table.rows.slice(0, 6).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={`${rowIndex}-${cellIndex}`}>{stripInlineMarkdown(cell)}</td>)}</tr>)}</tbody></table></div>}
