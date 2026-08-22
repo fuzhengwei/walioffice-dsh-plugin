@@ -38,92 +38,316 @@
 - 10 个办公工具的专属执行结果卡片
 - 工具执行完成后，产物自动进入右侧预览与汇总列表
 
-## 快速安装
+## 安装前准备
 
-### 1. 安装 DSH
+安装前请确认已经具备以下条件：
+
+1. 已安装 Node.js `22.19+` 或 `24+`。
+2. 已安装 npm。npm 会随 Node.js 一起安装。
+3. DSH 支持 `web` profile。
+4. 已在 DSH 中配置基础 LLM provider。文档、表格、PPT、图表和 Draw.io 工具都使用该 provider。
+
+先逐条检查版本：
 
 ```bash
-npm install -g @deepseek-ai/dsh
+node --version
+```
+
+```bash
+npm --version
+```
+
+如果电脑中已经安装 DSH，再检查 DSH 版本：
+
+```bash
 dsh --version
 ```
 
-### 2. 安装 WaLiOffice 插件
+## 安装
+
+以下命令适用于第一次安装。每条命令执行成功后，再执行下一条。
+
+### 第 1 步：安装 DSH
+
+如果还没有安装 DSH，执行：
+
+```bash
+npm install --global @deepseek-ai/dsh
+```
+
+确认 DSH 命令可用：
+
+```bash
+dsh --version
+```
+
+### 第 2 步：安装 WaLiOffice 插件
+
+插件必须安装到 `web` profile，执行：
 
 ```bash
 dsh plugin --profile web add walioffice-dsh-plugin
 ```
 
-安装指定版本（将版本替换为目标版本）：
+如果需要安装指定版本，把 `<版本号>` 替换成实际版本，例如 `0.1.15`：
 
 ```bash
-dsh plugin --profile web add walioffice-dsh-plugin@0.1.15
+dsh plugin --profile web add walioffice-dsh-plugin@<版本号>
 ```
 
-### 3. 启动 DSH Web
-
-```bash
-dsh web
-```
-
-如果安装插件时 `dsh web` 已经运行，请重启 DSH 并刷新浏览器页面。
-
-## 更新与卸载
-
-更新到最新版（建议先停止正在运行的 `dsh web`）：
-
-```bash
-dsh plugin --profile web remove walioffice-dsh-plugin
-dsh plugin --profile web add walioffice-dsh-plugin@latest
-```
-
-安装后重启 DSH，并刷新浏览器页面；如果仍显示旧界面，先确认安装版本：
+查看插件是否已经安装：
 
 ```bash
 dsh plugin --profile web list
 ```
 
-卸载：
+输出中应能看到 `walioffice-dsh-plugin`。不要省略 `--profile web`，否则插件可能被安装到其他 profile，Web 界面不会加载。
+
+### 第 3 步：启动 DSH Web
+
+在安装插件的同一个终端中执行：
+
+```bash
+dsh web
+```
+
+然后打开 DSH Web 页面。若安装插件前已经启动了 `dsh web`，请先停止旧进程，再重新执行上面的启动命令，并刷新浏览器页面。
+
+## 配置
+
+### 基础办公工具
+
+基础办公工具默认使用 DSH 已配置的 LLM。如果需要明确指定 provider 和模型，请在启动 DSH 之前，在同一个终端逐条执行：
+
+```bash
+export WALIOFFICE_LLM_PROVIDER=deepseek
+```
+
+```bash
+export WALIOFFICE_LLM_MODEL=deepseek-chat
+```
+
+然后启动 DSH：
+
+```bash
+dsh web
+```
+
+插件的配置优先级如下：
+
+1. `WALIOFFICE_LLM_PROVIDER`、`WALIOFFICE_LLM_MODEL`
+2. `DSH_LLM_PROVIDER`、`DSH_LLM_MODEL`
+3. DSH 自身已配置的 LLM provider
+
+### 图片和视频工具（可选）
+
+只有使用 `image_prompt`、`video_generate` 或 `video_storyboard` 时，才需要额外配置图片或视频 API。配置图片 API 时，逐条执行：
+
+```bash
+export AGNES_IMAGE_BASE_URL=https://your-image-api.example.com
+```
+
+```bash
+export AGNES_IMAGE_API_KEYS=key-1,key-2
+```
+
+图片工具使用的模型是 `agnes-image-2.1-flash`。如果 DSH 通过 `~/.dsh/settings.yaml` 管理模型，请确保该模型已经配置。
+
+配置视频 API 时，逐条执行：
+
+```bash
+export AGNES_VIDEO_BASE_URL=https://your-video-api.example.com
+```
+
+```bash
+export AGNES_VIDEO_API_KEYS=key-1,key-2
+```
+
+视频工具使用的模型是 `agnes-video-v2.0`。如果 DSH 通过 `~/.dsh/settings.yaml` 管理模型，请确保该模型已经配置。
+
+配置完成后，必须在同一个终端启动 DSH：
+
+```bash
+dsh web
+```
+
+如果不使用 `AGNES_*` 变量，也可以使用兼容变量 `LLM_IMAGE_*`、`LLM_VIDEO_*`。插件还支持从 DSH 的 `~/.dsh/settings.yaml`、`~/.dsh/.credentials.yaml` 读取配置。仓库中的 [`.env.example`](.env.example) 只是变量清单，DSH 不会自动加载 `.env` 文件。
+
+不要把真实 API key 写入 README、提交到 Git，或发布到 issue。
+
+## 使用
+
+### 通过 Web 界面使用
+
+1. 启动 DSH Web：`dsh web`。
+2. 在输入框上方选择办公类型，或选择综合模式。
+3. 输入任务要求，例如“根据下面的内容生成一份 PPT”或“把这组数据整理成 Excel”。
+4. 等待工具执行完成。
+5. 在右侧 WaLiOffice 面板查看预览、最近产物和汇总结果。
+
+可直接尝试以下任务：
+
+```text
+生成一份关于人工智能入门的 PPT，包含 8 页，最后输出 pptx 文件。
+```
+
+```text
+把下面的会议纪要整理成 Word 文档，并保存为 docx 文件。
+```
+
+```text
+根据以下销售数据生成 Excel 表格，并增加一个按月份统计的图表。
+```
+
+### 查看生成文件
+
+`.pptx`、`.docx`、`.xlsx` 和 `.md` 文件默认写入启动 DSH 时所在目录的 `output/` 文件夹。先查看当前目录：
+
+```bash
+pwd
+```
+
+再查看生成的文件：
+
+```bash
+ls -la output
+```
+
+图片和视频工具返回远程资源 URL，不会自动下载到 `output/`。
+
+## 升级
+
+### 升级 WaLiOffice 插件到最新版
+
+为避免 profile 缓存或旧进程继续使用旧代码，推荐使用“停止 DSH → 删除旧插件 → 安装新插件 → 重启 DSH”的方式升级。
+
+第 1 步，停止正在运行的 `dsh web`。在运行该命令的终端按 `Ctrl+C`。
+
+第 2 步，删除旧版本插件：
 
 ```bash
 dsh plugin --profile web remove walioffice-dsh-plugin
 ```
 
-## 环境变量
-
-基础文档、表格、PPT、图表和 draw.io 工具使用 DSH 已配置的 LLM 服务。运行时配置优先级为 `WALIOFFICE_*`，其次是 DSH 的同名兼容变量；可以用以下变量覆盖 provider 和模型：
+第 3 步，安装最新版插件：
 
 ```bash
-export WALIOFFICE_LLM_PROVIDER=deepseek
-export WALIOFFICE_LLM_MODEL=deepseek-chat
+dsh plugin --profile web add walioffice-dsh-plugin@latest
 ```
 
-图片与视频生成是可选能力，需要额外配置对应 API。插件会优先读取 DSH 的 `~/.dsh/settings.yaml` 与 `~/.dsh/.credentials.yaml`，也可以通过环境变量覆盖。
-
-图片配置示例：
+第 4 步，确认插件版本：
 
 ```bash
-export AGNES_IMAGE_BASE_URL=https://your-image-api.example.com
-export AGNES_IMAGE_API_KEYS=key-1,key-2
-export AGNES_IMAGE_MODEL=agnes-image-2.1-flash
-
-export AGNES_VIDEO_BASE_URL=https://your-video-api.example.com
-export AGNES_VIDEO_API_KEYS=key-1,key-2
-export AGNES_VIDEO_MODEL=agnes-video-v2.5
+dsh plugin --profile web list
 ```
 
-`AGNES_*` 未设置时，图片和视频工具支持使用 `LLM_IMAGE_*`、`LLM_VIDEO_*` 兼容变量；密钥也支持 DSH credentials 中的 `apiKeyEnv`，以及 `AGNES_AI_API_KEY`。仓库内的 [`.env.example`](.env.example) 提供了可复制的变量清单，但 DSH 不会自动加载 `.env`，请在启动 DSH 的同一 shell 中 `export`，或使用 DSH 自身的 credentials 配置。
+也可以先查看 npm registry 当前的最新版：
 
-不要把真实 API key 提交到仓库、README 或 issue 中。
+```bash
+npm view walioffice-dsh-plugin version --registry=https://registry.npmjs.org/
+```
+
+然后安装返回的明确版本号：
+
+```bash
+dsh plugin --profile web add walioffice-dsh-plugin@<版本号>
+```
+
+第 5 步，重新启动 DSH Web：
+
+```bash
+dsh web
+```
+
+最后刷新浏览器页面。如果页面仍显示旧界面，请完全关闭旧的 DSH 进程后再启动一次。
+
+### 升级 DSH
+
+先查看当前 DSH 版本：
+
+```bash
+dsh --version
+```
+
+升级到 npm 上的最新版：
+
+```bash
+npm install --global @deepseek-ai/dsh@latest
+```
+
+再次确认升级结果：
+
+```bash
+dsh --version
+```
+
+升级 DSH 后重新启动 Web：
+
+```bash
+dsh web
+```
+
+如果升级 DSH 后出现插件兼容或页面加载问题，按“升级 WaLiOffice 插件到最新版”中的步骤重新安装插件。
+
+### 回退到指定插件版本
+
+第 1 步，删除当前版本：
+
+```bash
+dsh plugin --profile web remove walioffice-dsh-plugin
+```
+
+第 2 步，安装需要回退的版本：
+
+```bash
+dsh plugin --profile web add walioffice-dsh-plugin@<版本号>
+```
+
+第 3 步，重启 DSH Web：
+
+```bash
+dsh web
+```
+
+## 卸载
+
+只卸载 WaLiOffice 插件，不会卸载 DSH：
+
+```bash
+dsh plugin --profile web remove walioffice-dsh-plugin
+```
+
+卸载后重新启动 DSH Web：
+
+```bash
+dsh web
+```
+
+如果还要卸载 DSH 本身，执行：
+
+```bash
+npm uninstall --global @deepseek-ai/dsh
+```
 
 ## 常见问题
 
 ### 安装后页面没有 WaLiOffice
 
-确认插件安装在 `web` profile，并完整重启 `dsh web`：
+确认插件安装在 `web` profile，并完整重启 `dsh web`。先检查插件：
 
 ```bash
-dsh plugin --profile web remove walioffice-dsh-plugin
+dsh plugin --profile web list
+```
+
+如果列表中没有插件，重新安装：
+
+```bash
 dsh plugin --profile web add walioffice-dsh-plugin@latest
+```
+
+然后重启：
+
+```bash
 dsh web
 ```
 
@@ -133,23 +357,65 @@ dsh web
 
 ### 更新后仍然是旧版本
 
-使用 npm registry 直接确认线上版本，并安装明确版本号，避免本地 profile 或镜像缓存影响：
+先查看 npm registry 上的最新版：
 
 ```bash
 npm view walioffice-dsh-plugin version dist-tags.latest --registry=https://registry.npmjs.org/
-dsh plugin --profile web add walioffice-dsh-plugin@<version>
+```
+
+然后按顺序删除旧版、安装明确版本并重启：
+
+```bash
+dsh plugin --profile web remove walioffice-dsh-plugin
+```
+
+```bash
+dsh plugin --profile web add walioffice-dsh-plugin@<版本号>
+```
+
+```bash
+dsh web
 ```
 
 ### 生成文件在哪里
 
-检查启动 DSH 时的当前工作目录下的 `output/`。插件不会把产物写入 npm 全局安装目录。
+先检查启动 DSH 时的当前工作目录：
+
+```bash
+pwd
+```
+
+再检查 `output/`：
+
+```bash
+ls -la output
+```
+
+插件不会把产物写入 npm 全局安装目录。
 
 ## 本地开发
 
+安装源码依赖：
+
 ```bash
 pnpm install
+```
+
+执行类型检查：
+
+```bash
 pnpm run typecheck
+```
+
+构建插件 bundle：
+
+```bash
 pnpm run bundle
+```
+
+检查 npm 打包内容：
+
+```bash
 pnpm run pack:check
 ```
 
@@ -164,9 +430,21 @@ cordis.patch.yml
 
 本地打包并安装测试：
 
+先生成本地 tarball：
+
 ```bash
 pnpm pack
-dsh plugin --profile web add /absolute/path/to/walioffice-dsh-plugin-0.1.15.tgz
+```
+
+再将下面的路径替换为实际生成的 tarball 路径：
+
+```bash
+dsh plugin --profile web add /absolute/path/to/walioffice-dsh-plugin-<版本号>.tgz
+```
+
+最后启动 DSH Web：
+
+```bash
 dsh web
 ```
 
@@ -174,7 +452,13 @@ dsh web
 
 ```bash
 pnpm run typecheck
+```
+
+```bash
 pnpm run bundle
+```
+
+```bash
 npm pack --dry-run
 ```
 
