@@ -7,7 +7,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson, sceneGuide, inferScene } from '@walioffice/dsh-office'
+import { inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 import { renderXlsx } from '@walioffice/dsh-office-render-xlsx'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -66,6 +66,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已生成 ${value.tableCount} 个表格，共 ${value.totalRows} 行数据，文件已保存到 ${value.filePath}`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'sheet', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -76,7 +77,7 @@ export function apply(ctx: Context): void {
       const sheetCount = args.sheets ?? 1
       const scene = inferScene(topic)
       const guide = sceneGuide(scene, 'sheet')
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       office.emitProgress('running', '生成表格', `正在为《${topic}》生成数据...`)
 
@@ -108,6 +109,7 @@ export function apply(ctx: Context): void {
         tables: output.tables.map(t => ({
           title: t.title,
           headers: t.headers,
+          rows: t.rows.slice(0, 12),
           rowCount: t.rows.length,
           summary: t.summary,
         })),

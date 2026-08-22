@@ -1,7 +1,7 @@
 {
   "paths": {
     "@walioffice/*": [
-      "./packages/extensions/walioffice-*/src"
+      "./packages/extensions/walioffice-*/lib/types"
     ]
   }
 }

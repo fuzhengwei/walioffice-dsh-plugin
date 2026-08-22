@@ -7,7 +7,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson } from '@walioffice/dsh-office'
+import { llmGenerateJson, resolveOfficeService } from '@walioffice/dsh-office'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -244,6 +244,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已生成视频《${value.title}》(${value.duration}秒, ${value.aspectRatio})`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'video', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -251,7 +252,7 @@ export function apply(ctx: Context): void {
       if (!topic?.trim()) {
         throw new Error('topic 不能为空')
       }
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       const aspectRatio = normalizeAspectRatio(args.aspect_ratio ?? '16:9')
       const seconds = normalizeSeconds(args.seconds ?? 5)
@@ -363,6 +364,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已规划视频分镜《${value.title}》：${value.totalShots} 个镜头，共 ${value.totalSeconds} 秒`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'storyboard', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -370,7 +372,7 @@ export function apply(ctx: Context): void {
       if (!topic?.trim()) {
         throw new Error('topic 不能为空')
       }
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
       const aspectRatio = normalizeAspectRatio(args.aspect_ratio ?? '16:9')
       const maxShots = Math.max(1, Math.min(8, args.max_shots ?? 3))
       const secondsPerShot = normalizeSeconds(args.seconds_per_shot ?? 5)

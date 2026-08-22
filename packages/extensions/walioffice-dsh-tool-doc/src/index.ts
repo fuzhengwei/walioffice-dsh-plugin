@@ -6,7 +6,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson, sceneGuide, inferScene } from '@walioffice/dsh-office'
+import { inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 import { renderDocx } from '@walioffice/dsh-office-render-docx'
 import { resolve } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -31,6 +31,14 @@ export interface DocOutput {
   sections: DocSection[]
   format: string
   markdown: string
+}
+
+interface DocPreviewSection {
+  heading: string
+  headingLevel: number
+  paragraphs: string[]
+  bullets: string[]
+  table?: DocTable
 }
 
 // ── Scene-specific format guides ────────────────────────────────────────────
@@ -116,13 +124,16 @@ export function apply(ctx: Context): void {
           title: { type: 'string', required: true },
           sectionCount: { type: 'integer', required: true },
           filePath: { type: 'string', required: true },
+          format: { type: 'string' },
           markdown: { type: 'string' },
+          sections: { type: 'array' },
         },
       },
       render: (_args, value) => [{
         type: 'text',
         text: `已生成 Word 文档《${value.title}》，共 ${value.sectionCount} 章，文件已保存到 ${value.filePath}`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'doc', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -135,7 +146,7 @@ export function apply(ctx: Context): void {
       const scene = inferScene(topic)
       const guide = sceneGuide(scene, 'doc')
       const fmtGuide = formatGuide(format, scene)
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       office.emitProgress('running', '生成 Word 文档', `正在为《${topic}》生成内容...`)
 
@@ -190,7 +201,20 @@ export function apply(ctx: Context): void {
         title: doc.title,
         sectionCount: doc.sections.length,
         filePath,
+        format,
         markdown: doc.markdown,
+        sections: doc.sections.map((section): DocPreviewSection => ({
+          heading: section.heading,
+          headingLevel: section.heading_level,
+          paragraphs: section.paragraphs.slice(0, 3),
+          bullets: section.bullets.slice(0, 6),
+          ...(section.table ? {
+            table: {
+              headers: section.table.headers,
+              rows: section.table.rows.slice(0, 8),
+            },
+          } : {}),
+        })),
       }
     },
   }))
@@ -236,6 +260,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已生成 Markdown 文档《${value.title}》，文件已保存到 ${value.filePath}`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'markdown', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -247,7 +272,7 @@ export function apply(ctx: Context): void {
       const audience = args.audience ?? ''
       const scene = inferScene(topic)
       const guide = sceneGuide(scene, 'md')
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       const styleGuides: Record<string, string> = {
         readme: '输出 README 风格文档，优先包含简介、核心能力、快速开始、使用步骤、目录结构、示例、注意事项。',

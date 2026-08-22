@@ -7,7 +7,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson, llmGenerateText, sceneGuide, inferScene } from '@walioffice/dsh-office'
+import { inferScene, llmGenerateJson, llmGenerateText, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 
 // ── System prompt ───────────────────────────────────────────────────────────
 
@@ -46,6 +46,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已生成 draw.io 图表《${value.title}》（${value.diagramType}）`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'drawio', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -56,7 +57,7 @@ export function apply(ctx: Context): void {
       const diagramType = args.diagram_type ?? 'flowchart'
       const scene = inferScene(topic)
       const guide = sceneGuide(scene, 'drawio')
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       office.emitProgress('running', '生成图表', `正在为《${topic}》生成 ${diagramType} 图...`)
 

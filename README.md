@@ -1,125 +1,138 @@
-# WaLiOffice DSH Plugin
+# walioffice-dsh-plugin
 
-WaLiOffice 办公工具套件，作为 [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) 的 TypeScript Cordis 插件运行。
+`walioffice-dsh-plugin` 是可直接安装到 DeepSeek Harness（DSH）的办公工具插件。插件以单个 npm 包发布，安装后一次注册 10 个办公工具，无需复制源码到 DSH 仓库。
 
-## 工具清单（10 个）
+## 工具清单
 
-| 工具 | 功能 | 渲染库 |
-|------|------|--------|
-| `ppt_plan` | PPT 大纲规划（7 场景推断 + LLM 生成 JSON） | — |
-| `ppt_generate` | PPT 渲染为 .pptx 文件 | pptxgenjs |
-| `doc_generate` | Word 文档生成 | docx (npm) |
-| `md_generate` | Markdown 文档生成 | — |
-| `sheet_generate` | Excel 表格生成 | exceljs |
-| `chart_generate` | ECharts 图表数据（6 种类型） | — |
-| `drawio_generate` | draw.io 图表 XML（6 种类型） | — |
-| `image_prompt` | AI 文生图/图生图（Agnes Image 2.1 Flash） | 外部 API |
-| `video_generate` | AI 视频生成（Agnes Video V2.5，3 种模式） | 外部 API |
-| `video_storyboard` | 视频分镜规划 | — |
+| 工具 | 功能 | 输出 |
+| --- | --- | --- |
+| `ppt_plan` | 生成 PPT 大纲与页面规划 | JSON |
+| `ppt_generate` | 生成完整演示文稿 | `.pptx` |
+| `doc_generate` | 生成 Word 文档 | `.docx` |
+| `md_generate` | 生成 Markdown 文档 | `.md` |
+| `sheet_generate` | 生成结构化表格 | `.xlsx` |
+| `chart_generate` | 生成 ECharts 图表配置 | JSON |
+| `drawio_generate` | 生成 draw.io 图表 | XML |
+| `image_prompt` | 调用 Agnes Image API 生成图片 | 图片 URL |
+| `video_generate` | 调用 Agnes Video API 生成视频 | 视频 URL |
+| `video_storyboard` | 生成视频分镜方案 | JSON |
 
-## 包结构（12 包）
+生成的 `.pptx`、`.docx`、`.xlsx` 和 `.md` 文件默认保存在启动 DSH 时工作目录下的 `output/` 目录。
 
-```
-packages/extensions/
-  walioffice-dsh-office              核心服务定义（LLM helper、场景推断、主题色板、Context 扩展）
-  walioffice-dsh-office-bundle       聚合包（一键加载全部工具 + OfficeService）
-  walioffice-dsh-office-render-docx  Word 渲染层（docx npm）
-  walioffice-dsh-office-render-pptx  PPT 渲染层（pptxgenjs）
-  walioffice-dsh-office-render-xlsx  Excel 渲染层（exceljs）
-  walioffice-dsh-tool-chart          图表工具
-  walioffice-dsh-tool-doc            Word + Markdown 工具
-  walioffice-dsh-tool-drawio         DrawIO 工具
-  walioffice-dsh-tool-image          图片工具
-  walioffice-dsh-tool-ppt            PPT 工具（plan + generate）
-  walioffice-dsh-tool-sheet          Excel 工具
-  walioffice-dsh-tool-video          视频工具（generate + storyboard）
-```
+## Web 界面
 
-## 快速开始
+安装后，DSH Web 会增加 WaLiOffice 客户端界面：
 
-### 方式一：集成到 DSH 仓库（推荐开发）
+- 输入框上方的办公类型栏，可选择 Word、Excel、PPT、图表、Draw.io、图片和视频
+- 页面右侧的智能办公面板，集中展示工具入口与最近产物
+- 10 个办公工具的专属执行结果卡片
+- 工具执行完成后，产物自动进入右侧预览与汇总列表
 
-将 `packages/extensions/walioffice-*` 复制到 DSH 仓库的 `packages/extensions/` 下，然后在 DSH 根目录执行：
+## 快速安装
+
+### 1. 安装 DSH
 
 ```bash
-pnpm install
-pnpm run build:lib:host
-npx @deepseek-ai/dsh web --preset walioffice
+npm install -g @deepseek-ai/dsh
+dsh --version
 ```
 
-### 方式二：独立安装
+### 2. 安装 WaLiOffice 插件
 
 ```bash
-cd walioffice-dsh-plugin
-pnpm install
-pnpm build
+dsh plugin --profile web add walioffice-dsh-plugin
 ```
 
-然后在 DSH 的 `cordis.yml` 中加载：
+安装指定版本：
 
-```yaml
-plugins:
-  - name: '@walioffice/dsh-office-bundle'
+```bash
+dsh plugin --profile web add walioffice-dsh-plugin@0.1.1
 ```
 
-或单独加载需要的工具：
+### 3. 启动 DSH Web
 
-```yaml
-plugins:
-  - name: '@walioffice/dsh-tool-ppt'
-  - name: '@walioffice/dsh-tool-doc'
-  - name: '@walioffice/dsh-tool-sheet'
+```bash
+dsh web
+```
+
+如果安装插件时 `dsh web` 已经运行，请重启 DSH 并刷新浏览器页面。
+
+## 更新与卸载
+
+更新到最新版：
+
+```bash
+dsh plugin --profile web remove walioffice-dsh-plugin
+dsh plugin --profile web add walioffice-dsh-plugin@latest
+```
+
+卸载：
+
+```bash
+dsh plugin --profile web remove walioffice-dsh-plugin
 ```
 
 ## 环境变量
 
-```bash
-cp .env.example .env
-```
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `WALIOFFICE_LLM_PROVIDER` | LLM provider | `deepseek` |
-| `WALIOFFICE_LLM_MODEL` | LLM 模型 | `deepseek-chat` |
-| `AGNES_IMAGE_BASE_URL` | 图片 API 地址 | — |
-| `AGNES_IMAGE_API_KEYS` | 图片 API 密钥（逗号分隔轮询） | — |
-| `AGNES_IMAGE_MODEL` | 图片模型 | `agnes-image-2.1-flash` |
-| `AGNES_VIDEO_BASE_URL` | 视频 API 地址 | — |
-| `AGNES_VIDEO_API_KEYS` | 视频 API 密钥（逗号分隔轮询） | — |
-| `AGNES_VIDEO_MODEL` | 视频模型 | `agnes-video-v2.5` |
-
-## DSH 集成配置
-
-### tsconfig.base.json paths 映射
-
-```json
-"@walioffice/*": ["./packages/extensions/walioffice-*/src"]
-```
-
-### tsconfig.host.json references
-
-```json
-{ "path": "./packages/extensions/walioffice-dsh-office" },
-{ "path": "./packages/extensions/walioffice-dsh-office-bundle" },
-...
-```
-
-### Agent Preset
-
-预设位于 `apps/cli/config/agent-presets/walioffice/`，使用：
+基础文档、表格、PPT、图表和 draw.io 工具使用 DSH 已配置的 LLM 服务。可以用以下变量覆盖模型：
 
 ```bash
-npx @deepseek-ai/dsh web --preset walioffice
+export WALIOFFICE_LLM_PROVIDER=deepseek
+export WALIOFFICE_LLM_MODEL=deepseek-chat
 ```
 
-## 设计决策
+图片与视频生成是可选能力，需要额外配置 Agnes API：
 
-- **LLM 调用**：通过 `ctx.llm.stream()` 走 DSH 统一 LLM 服务
-- **PPTX 渲染**：pptxgenjs 替代 Rust 手写 OOXML
-- **DOCX 渲染**：docx npm 替代 docx-rs
-- **XLSX 渲染**：exceljs 替代 rust_xlsxwriter
-- **进度推送**：`session/event` 事件系统替代 SSE
-- **场景推断**：从 Rust 直接翻译为 TS，保持 7 种场景一致
+```bash
+export AGNES_IMAGE_BASE_URL=https://your-image-api.example.com
+export AGNES_IMAGE_API_KEYS=key-1,key-2
+export AGNES_IMAGE_MODEL=agnes-image-2.1-flash
+
+export AGNES_VIDEO_BASE_URL=https://your-video-api.example.com
+export AGNES_VIDEO_API_KEYS=key-1,key-2
+export AGNES_VIDEO_MODEL=agnes-video-v2.5
+```
+
+也可以复制 `.env.example` 查看完整变量说明。DSH 进程必须能够读取这些环境变量。
+
+## 本地开发
+
+```bash
+pnpm install
+pnpm run typecheck
+pnpm run bundle
+pnpm run pack:check
+```
+
+构建产物：
+
+```text
+lib/index.js
+lib/index.d.ts
+cordis.patch.yml
+```
+
+本地打包并安装测试：
+
+```bash
+pnpm pack
+dsh plugin --profile web add /absolute/path/to/walioffice-dsh-plugin-0.1.1.tgz
+dsh web
+```
+
+## 项目结构
+
+```text
+src/index.ts                         对外发布入口
+cordis.patch.yml                     DSH 自动挂载配置
+packages/extensions/
+  walioffice-dsh-office              Office 服务与 LLM helper
+  walioffice-dsh-office-bundle       10 个工具的聚合入口
+  walioffice-dsh-office-render-*     PPTX/DOCX/XLSX 渲染器
+  walioffice-dsh-tool-*              各办公工具实现
+```
+
+根包构建时会把所有 `@walioffice/*` workspace 模块合并到 `lib/index.js`，最终安装者只需要安装 `walioffice-dsh-plugin` 一个包。
 
 ## License
 

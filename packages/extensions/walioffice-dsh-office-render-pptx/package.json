@@ -8,7 +8,7 @@
   "exports": {
     ".": {
       "types": "./lib/types/index.d.ts",
-      "default": "./lib/index.js"
+      "default": "./lib/types/index.js"
     },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
@@ -22,7 +22,7 @@
     "pptxgenjs": "^3.12.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:*"
+    "@deepseek-ai/cordis": "^4.0.1"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

@@ -1,0 +1,8 @@
+# Composable bundle patch for walioffice-dsh-plugin.
+# DSH applies this patch after `dsh plugin --profile <name> add` installs the
+# package. The package name must match the published npm package so the host
+# can resolve the bundled Node entry from the selected profile.
+
+- insert:
+    - id: walioffice
+      name: 'walioffice-dsh-plugin'

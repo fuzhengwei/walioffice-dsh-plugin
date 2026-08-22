@@ -1,15 +1,141 @@
 {
   "name": "walioffice-dsh-plugin",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.11",
   "description": "WaLiOffice 办公工具套件 — DeepSeek Harness (DSH) 插件",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-tool"
+      ],
+      "platform": "web"
+    }
+  },
   "license": "MIT",
   "scripts": {
-    "build": "tsc -b",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf packages/extensions/*/lib packages/extensions/*/*.tsbuildinfo"
+    "build": "pnpm run bundle",
+    "build:packages": "tsc -b",
+    "bundle": "pnpm run build:packages && tsdown",
+    "typecheck": "tsc -b --pretty false",
+    "clean": "rm -rf lib packages/extensions/*/lib packages/extensions/*/*.tsbuildinfo tsconfig.tsbuildinfo",
+    "prepublishOnly": "pnpm run bundle",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "office",
+    "pptx",
+    "docx",
+    "xlsx"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fuzhengwei/walioffice-dsh-plugin.git"
+  },
+  "homepage": "https://github.com/fuzhengwei/walioffice-dsh-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/fuzhengwei/walioffice-dsh-plugin/issues"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "dependencies": {
+    "docx": "^9.0.0",
+    "exceljs": "^4.4.0",
+    "pptxgenjs": "^3.12.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1-rc.1",
+    "@deepseek-ai/dsh-client-runtime": ">=0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-layout": ">=0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-tool": ">=0.1.0-rc.8",
+    "@deepseek-ai/dsh-llm": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "react": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-runtime": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-conversation": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-layout": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-tool": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "typescript": "^5.5.0"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-layout": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-tool": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-llm": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-scope": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-session": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-timeout": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-tools": "0.0.1-rc.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "~18.3.31",
+    "@walioffice/dsh-office": "workspace:*",
+    "@walioffice/dsh-office-bundle": "workspace:*",
+    "@walioffice/dsh-office-render-docx": "workspace:*",
+    "@walioffice/dsh-office-render-pptx": "workspace:*",
+    "@walioffice/dsh-office-render-xlsx": "workspace:*",
+    "@walioffice/dsh-tool-chart": "workspace:*",
+    "@walioffice/dsh-tool-doc": "workspace:*",
+    "@walioffice/dsh-tool-drawio": "workspace:*",
+    "@walioffice/dsh-tool-image": "workspace:*",
+    "@walioffice/dsh-tool-ppt": "workspace:*",
+    "@walioffice/dsh-tool-sheet": "workspace:*",
+    "@walioffice/dsh-tool-video": "workspace:*",
+    "react": "^18.2.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

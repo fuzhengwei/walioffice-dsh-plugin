@@ -1,2 +1,5 @@
 packages:
   - "packages/extensions/*"
+
+autoInstallPeers: false
+strictPeerDependencies: false

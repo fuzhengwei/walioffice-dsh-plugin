@@ -323,6 +323,14 @@ export interface OfficeService extends Service {
   getPriorArtifacts(): OfficeArtifact[]
 }
 
+export function resolveOfficeService(ctx: Context): OfficeService {
+  const office = ctx.get('office') as OfficeService | undefined
+  if (!office) {
+    throw new Error('Office 模块未注入环境，请确认 @walioffice/dsh-office 已通过 ctx.plugin(...) 正式挂载。')
+  }
+  return office
+}
+
 // ── Cordis plugin: provides the 'office' service ─────────────────────────────
 
 export const name = 'walioffice-office'

@@ -7,7 +7,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson } from '@walioffice/dsh-office'
+import { llmGenerateJson, resolveOfficeService } from '@walioffice/dsh-office'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +68,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已生成图表《${value.title}》（${value.chartType}），共 ${value.labels.length} 个数据点`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'chart', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -76,7 +77,7 @@ export function apply(ctx: Context): void {
         throw new Error('topic 不能为空')
       }
       const chartType = args.chart_type ?? 'bar'
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       office.emitProgress('running', '生成图表', `正在为《${topic}》生成数据...`)
 

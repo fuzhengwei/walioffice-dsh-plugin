@@ -27,32 +27,32 @@ import type { Context } from '@deepseek-ai/cordis'
 import '@walioffice/dsh-office' // for Context augmentation
 
 // Import office service registration
-import { apply as applyOffice } from '@walioffice/dsh-office'
+import * as officePlugin from '@walioffice/dsh-office'
 
 // Import tool plugins
-import { apply as applyPpt } from '@walioffice/dsh-tool-ppt'
-import { apply as applyDoc } from '@walioffice/dsh-tool-doc'
-import { apply as applySheet } from '@walioffice/dsh-tool-sheet'
-import { apply as applyChart } from '@walioffice/dsh-tool-chart'
-import { apply as applyDrawio } from '@walioffice/dsh-tool-drawio'
-import { apply as applyImage } from '@walioffice/dsh-tool-image'
-import { apply as applyVideo } from '@walioffice/dsh-tool-video'
+import * as pptPlugin from '@walioffice/dsh-tool-ppt'
+import * as docPlugin from '@walioffice/dsh-tool-doc'
+import * as sheetPlugin from '@walioffice/dsh-tool-sheet'
+import * as chartPlugin from '@walioffice/dsh-tool-chart'
+import * as drawioPlugin from '@walioffice/dsh-tool-drawio'
+import * as imagePlugin from '@walioffice/dsh-tool-image'
+import * as videoPlugin from '@walioffice/dsh-tool-video'
 
 export const name = 'walioffice'
 export const inject = ['tools', 'llm']
 
 export function apply(ctx: Context): void {
   // 1. Register the office service first
-  applyOffice(ctx)
+  ctx.plugin(officePlugin)
 
-  // 2. Register all tools (they use ctx.office which is now available)
-  applyPpt(ctx)
-  applyDoc(ctx)
-  applySheet(ctx)
-  applyChart(ctx)
-  applyDrawio(ctx)
-  applyImage(ctx)
-  applyVideo(ctx)
+  // 2. Register all tools through Cordis so their inject declarations are honored
+  ctx.plugin(pptPlugin)
+  ctx.plugin(docPlugin)
+  ctx.plugin(sheetPlugin)
+  ctx.plugin(chartPlugin)
+  ctx.plugin(drawioPlugin)
+  ctx.plugin(imagePlugin)
+  ctx.plugin(videoPlugin)
 
   console.log('[WaLiOffice] Registered 10 office tools: ppt_plan, ppt_generate, doc_generate, md_generate, sheet_generate, chart_generate, drawio_generate, image_prompt, video_generate, video_storyboard')
 }

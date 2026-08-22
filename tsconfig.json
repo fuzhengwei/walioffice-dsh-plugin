@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "types": ["node"],
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "references": [
+    { "path": "./packages/extensions/walioffice-dsh-office" },
+    { "path": "./packages/extensions/walioffice-dsh-office-bundle" },
+    { "path": "./packages/extensions/walioffice-dsh-office-render-docx" },
+    { "path": "./packages/extensions/walioffice-dsh-office-render-pptx" },
+    { "path": "./packages/extensions/walioffice-dsh-office-render-xlsx" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-chart" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-doc" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-drawio" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-image" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-ppt" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-sheet" },
+    { "path": "./packages/extensions/walioffice-dsh-tool-video" }
+  ],
+  "include": ["src"],
+  "exclude": ["node_modules", "**/node_modules", "**/lib", "**/dist"]
+}

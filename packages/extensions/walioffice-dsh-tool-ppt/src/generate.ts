@@ -8,7 +8,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson, sceneGuide, inferScene, getThemePalettes } from '@walioffice/dsh-office'
+import { getThemePalettes, inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 import type { PresentationPlan, SlidePlan } from './plan.ts'
 import type { Palette } from '@walioffice/dsh-office'
 import { renderPptx } from '@walioffice/dsh-office-render-pptx'
@@ -232,6 +232,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已生成 PPT《${value.title}》，共 ${value.slideCount} 页，文件已保存到 ${value.filePath}`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'ppt', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -240,7 +241,7 @@ export function apply(ctx: Context): void {
         throw new Error('topic 不能为空')
       }
       const theme = args.theme ?? 'business'
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
 
       // Get plan from scratchpad or generate
       office.emitProgress('running', '读取 PPT 大纲', '正在获取规划方案...')

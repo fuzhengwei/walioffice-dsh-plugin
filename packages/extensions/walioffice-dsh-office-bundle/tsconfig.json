@@ -17,5 +17,15 @@
     "rootDir": "src",
     "outDir": "lib"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../walioffice-dsh-office" },
+    { "path": "../walioffice-dsh-tool-ppt" },
+    { "path": "../walioffice-dsh-tool-doc" },
+    { "path": "../walioffice-dsh-tool-sheet" },
+    { "path": "../walioffice-dsh-tool-chart" },
+    { "path": "../walioffice-dsh-tool-drawio" },
+    { "path": "../walioffice-dsh-tool-image" },
+    { "path": "../walioffice-dsh-tool-video" }
+  ]
 }

@@ -8,7 +8,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolResult } from '@deepseek-ai/dsh-tools'
-import { llmGenerateJson, sceneGuide, inferScene } from '@walioffice/dsh-office'
+import { inferScene, llmGenerateJson, resolveOfficeService, sceneGuide } from '@walioffice/dsh-office'
 import type { Palette } from '@walioffice/dsh-office'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -75,6 +75,7 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `已规划 PPT 大纲《${value.title}》，共 ${value.slideCount} 页`,
       }],
+      presentationMeta: (_args, value) => ({ kind: 'ppt', ...value }),
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
@@ -94,7 +95,7 @@ export function apply(ctx: Context): void {
         '请规划一份完整的 PPT 大纲，只返回 JSON。',
       ].filter(Boolean).join('\n')
 
-      const office = ctx.office
+      const office = resolveOfficeService(ctx)
       office.emitProgress('running', '规划 PPT 大纲', `正在为《${topic}》规划大纲...`)
 
       const json = await llmGenerateJson(ctx, SYSTEM_PROMPT, userPrompt)
