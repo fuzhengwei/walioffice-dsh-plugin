@@ -110,6 +110,7 @@ export function openOfficePanel(artifactId?: string): void {
 
 export function publishArtifact(artifact: OfficeArtifact): void {
   window.dispatchEvent(new CustomEvent<OfficeArtifact>(OFFICE_ARTIFACT_EVENT, { detail: artifact }))
+  if (!artifact.isError) openOfficePanel(artifact.id)
 }
 
 export function artifactFromTool(toolName: string, callId: string, block: ToolCallBlock): OfficeArtifact | null {

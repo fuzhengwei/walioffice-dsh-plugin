@@ -1,6 +1,6 @@
 /**
  * Video generation tools: video_generate and video_storyboard
- * Uses Agnes Video V2.5 API.
+ * Uses Agnes Video V2.0 API.
  * 
  * @module @walioffice/dsh-tool-video
  */
@@ -26,14 +26,32 @@ interface VideoPlan {
 
 interface CreateVideoResponse {
   id: string
+  videoId: string
   status: string
 }
 
+interface RawCreateVideoResponse {
+  id?: string
+  task_id?: string
+  video_id?: string
+  status?: string
+  progress?: number
+}
+
 interface QueryVideoResponse {
-  status: 'pending' | 'processing' | 'succeeded' | 'failed'
-  progress: number
+  id?: string
+  video_id?: string
+  model?: string
+  status: 'queued' | 'pending' | 'processing' | 'in_progress' | 'completed' | 'failed' | 'error' | 'cancelled'
+  progress?: number
+  seconds?: string
+  size?: string
+  remixed_from_video_id?: string
   url?: string
   metadata?: Record<string, unknown>
+  error?: { message?: string }
+  video_url?: string
+  data?: { url?: string; video_url?: string }[]
 }
 
 interface StoryboardShot {
@@ -73,7 +91,7 @@ interface VideoProviderProfile {
   models: string[]
 }
 
-const VIDEO_MODEL = 'agnes-video-2.5'
+const VIDEO_MODEL = 'agnes-video-v2.0'
 
 function resolveVideoConfig(ctx: Context): VideoConfig {
   const baseUrl = process.env.AGNES_VIDEO_BASE_URL || process.env.LLM_VIDEO_BASE_URL || ''
@@ -242,29 +260,137 @@ function normalizeAspectRatio(ratio: string): string {
   return valid.includes(ratio) ? ratio : '16:9'
 }
 
-function inferSize(ratio: string): { width: number; height: number } {
-  const map: Record<string, { width: number; height: number }> = {
-    '16:9': { width: 1280, height: 720 },
-    '9:16': { width: 720, height: 1280 },
-    '1:1': { width: 720, height: 720 },
-    '4:3': { width: 960, height: 720 },
-    '3:4': { width: 720, height: 960 },
-    '21:9': { width: 1680, height: 720 },
-  }
-  return map[ratio] ?? map['16:9']!
-}
-
 function normalizeSeconds(seconds: number): number {
   return Math.max(4, Math.min(12, Math.round(seconds)))
 }
 
-function inferMode(imageCount: number, explicit?: string): 'text' | 'keyframe' | 'reference' {
+function inferSize(ratio: string): { width: number; height: number } {
+  const map: Record<string, { width: number; height: number }> = {
+    '16:9': { width: 1152, height: 768 },
+    '9:16': { width: 768, height: 1152 },
+    '1:1': { width: 960, height: 960 },
+    '4:3': { width: 1024, height: 768 },
+    '3:4': { width: 768, height: 1024 },
+  }
+  return map[ratio] ?? map['16:9']!
+}
+
+function inferNumFrames(seconds: number): number {
+  if (seconds <= 4) return 81
+  if (seconds >= 9) return 241
+  return 121
+}
+
+function inferMode(imageCount: number, videoCount: number, explicit?: string): 'text' | 'keyframe' | 'reference' {
   if (explicit && ['text', 'keyframe', 'reference'].includes(explicit)) {
     return explicit as 'text' | 'keyframe' | 'reference'
   }
+  if (videoCount > 0) return 'reference'
   if (imageCount === 0) return 'text'
   if (imageCount <= 2) return 'keyframe'
   return 'reference'
+}
+
+function storyboardMode(referenceCount: number): 'text' | 'keyframe' | 'reference' {
+  if (referenceCount === 0) return 'text'
+  if (referenceCount <= 2) return 'keyframe'
+  return 'reference'
+}
+
+function fallbackStoryboard(
+  topic: string,
+  aspectRatio: string,
+  maxShots: number,
+  secondsPerShot: number,
+  referenceImages: string[],
+): StoryboardPlan {
+  const mode = storyboardMode(referenceImages.length)
+  const templates = [
+    {
+      title: '环境建立',
+      description: `展示${topic}发生的环境、主体和整体氛围。`,
+      prompt: `Wide establishing shot, introduce the main subject and environment for: ${topic}. Gentle cinematic camera movement, warm natural lighting, polished commercial video style.`,
+      transition: 'fade',
+    },
+    {
+      title: '主体动作',
+      description: `突出${topic}中的主要动作和画面变化。`,
+      prompt: `Medium tracking shot, show the main subject actively moving and interacting within: ${topic}. Smooth camera motion, expressive action, natural lighting, cinematic detail.`,
+      transition: 'dissolve',
+    },
+    {
+      title: '温馨收束',
+      description: `以${topic}的情绪高潮和温馨结尾收束视频。`,
+      prompt: `Close-up and gentle pull-back, capture the warm emotional ending of: ${topic}. Authentic expressions, soft sunlight, comforting atmosphere, high-quality cinematic finish.`,
+      transition: 'fade',
+    },
+  ]
+  const shots = templates.slice(0, maxShots).map((template, index) => ({
+    index,
+    title: template.title,
+    description: template.description,
+    prompt: template.prompt,
+    mode,
+    seconds: secondsPerShot,
+    reference_images: referenceImages,
+    audio_urls: [],
+    transition: template.transition,
+  }))
+  return {
+    title: topic.slice(0, 24),
+    description: `围绕“${topic}”生成一支连贯的短视频。`,
+    total_shots: shots.length,
+    total_seconds: shots.length * secondsPerShot,
+    aspect_ratio: aspectRatio,
+    shots,
+  }
+}
+
+function normalizeStoryboard(
+  value: unknown,
+  topic: string,
+  aspectRatio: string,
+  maxShots: number,
+  secondsPerShot: number,
+  referenceImages: string[],
+): StoryboardPlan {
+  const record = asRecord(value)
+  const rawShots = Array.isArray(record?.shots) ? record.shots : []
+  const mode = storyboardMode(referenceImages.length)
+  const shots = rawShots.slice(0, maxShots).map((item, index) => {
+    const shot = asRecord(item)
+    return {
+      index,
+      title: typeof shot?.title === 'string' ? shot.title : `镜头 ${index + 1}`,
+      description: typeof shot?.description === 'string' ? shot.description : topic,
+      prompt: typeof shot?.prompt === 'string' ? shot.prompt : `Cinematic shot showing: ${topic}.`,
+      mode,
+      seconds: typeof shot?.seconds === 'number' ? normalizeSeconds(shot.seconds) : secondsPerShot,
+      reference_images: referenceImages,
+      audio_urls: Array.isArray(shot?.audio_urls) ? shot.audio_urls.filter(item => typeof item === 'string') as string[] : [],
+      transition: typeof shot?.transition === 'string' ? shot.transition : 'fade',
+    }
+  })
+  if (shots.length === 0) {
+    throw new Error('LLM 返回的分镜数据格式不正确')
+  }
+  return {
+    title: typeof record?.title === 'string' ? record.title : topic.slice(0, 24),
+    description: typeof record?.description === 'string' ? record.description : `围绕“${topic}”生成一支连贯的短视频。`,
+    total_shots: shots.length,
+    total_seconds: shots.reduce((sum, shot) => sum + shot.seconds, 0),
+    aspect_ratio: aspectRatio,
+    shots,
+  }
+}
+
+function videoApiBaseUrl(baseUrl: string): string {
+  const normalized = baseUrl.replace(/\/+$/, '')
+  return normalized.endsWith('/v1') ? normalized : `${normalized}/v1`
+}
+
+function videoApiRootUrl(baseUrl: string): string {
+  return videoApiBaseUrl(baseUrl).replace(/\/v1$/, '')
 }
 
 // ── API calls ───────────────────────────────────────────────────────────────
@@ -275,8 +401,9 @@ async function createVideoTask(
   images: string[],
   videos: string[],
 ): Promise<CreateVideoResponse> {
-  const url = `${config.baseUrl.replace(/\/$/, '')}/v1/videos/generations`
+  const url = `${videoApiBaseUrl(config.baseUrl)}/videos`
   const { width, height } = inferSize(plan.aspect_ratio)
+  const numFrames = inferNumFrames(plan.seconds)
 
   const body: Record<string, unknown> = {
     model: config.model,
@@ -284,14 +411,22 @@ async function createVideoTask(
     negative_prompt: plan.negative_prompt,
     width,
     height,
-    seconds: plan.seconds,
-    mode: plan.mode,
+    num_frames: numFrames,
+    frame_rate: 24,
   }
-  if (images.length > 0) {
+
+  if (plan.mode === 'keyframe' && images.length > 0) {
+    body.extra_body = { image: images, mode: 'keyframes' }
+  } else if (images.length > 1) {
     body.extra_body = { image: images }
+  } else if (images[0]) {
+    body.image = images[0]
   }
   if (videos.length > 0) {
-    body.extra_body = { ...((body.extra_body as Record<string, unknown>) ?? {}), video_ref: videos }
+    body.extra_body = {
+      ...((body.extra_body as Record<string, unknown>) ?? {}),
+      video_ref: videos,
+    }
   }
 
   let lastError = ''
@@ -310,7 +445,11 @@ async function createVideoTask(
         if (resp.status === 401 || resp.status === 403 || resp.status === 429) continue
         continue
       }
-      return await resp.json() as CreateVideoResponse
+      const data = await resp.json() as RawCreateVideoResponse
+      const taskId = data.task_id || data.id || data.video_id
+      const videoId = data.video_id || data.id || data.task_id
+      if (!taskId || !videoId) throw new Error('创建任务响应中缺少任务 ID 或视频 ID')
+      return { id: taskId, videoId, status: data.status || 'queued' }
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err)
     }
@@ -323,26 +462,43 @@ async function pollVideoTask(
   taskId: string,
   maxAttempts = 120,
 ): Promise<QueryVideoResponse> {
-  const url = `${config.baseUrl.replace(/\/$/, '')}/v1/videos/generations/${taskId}`
-  
+  const url = `${videoApiRootUrl(config.baseUrl)}/agnesapi?video_id=${encodeURIComponent(taskId)}&model_name=${encodeURIComponent(config.model)}`
+  let lastError = ''
+
   for (let i = 0; i < maxAttempts; i++) {
     for (const key of config.apiKeys) {
+      let resp: Response
       try {
-        const resp = await fetch(url, {
+        resp = await fetch(url, {
           headers: { 'Authorization': `Bearer ${key}` },
         })
-        if (resp.ok) {
-          const data = await resp.json() as QueryVideoResponse
-          if (data.status === 'succeeded') return data
-          if (data.status === 'failed') throw new Error('视频生成失败')
-        }
-      } catch {
-        // try next key
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err)
+        continue
+      }
+      if (!resp.ok) {
+        lastError = `HTTP ${resp.status}: ${await resp.text()}`
+        continue
+      }
+
+      let data: QueryVideoResponse
+      try {
+        data = await resp.json() as QueryVideoResponse
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err)
+        continue
+      }
+      if (data.status === 'completed') {
+        const url = data.url || data.video_url || data.data?.[0]?.url || data.data?.[0]?.video_url
+        return url ? { ...data, url } : data
+      }
+      if (data.status === 'failed' || data.status === 'error' || data.status === 'cancelled') {
+        throw new Error(data.error?.message || '视频生成失败')
       }
     }
-    await new Promise(r => setTimeout(r, 5000)) // poll every 5s
+    await new Promise(r => setTimeout(r, 1500))
   }
-  throw new Error('视频生成超时')
+  throw new Error(`视频生成超时${lastError ? `：${lastError}` : ''}`)
 }
 
 // ── video_generate tool ─────────────────────────────────────────────────────
@@ -350,7 +506,7 @@ async function pollVideoTask(
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'video_generate',
-    description: '生成视频：基于 Agnes Video V2.5，支持 text/keyframe/reference 三种模式（0图→text，1-2图→keyframe，3+图→reference），支持从会话历史产物提取图片。复杂视频建议先调用 video_storyboard 分镜。',
+    description: '生成视频：基于 Agnes Video V2.0，支持 text/keyframe/reference 三种模式（0图→text，1-2图→keyframe，3+图→reference），支持从会话历史产物提取图片。复杂视频建议先调用 video_storyboard 分镜。',
     parameters: {
       topic: { type: 'string', required: true, description: '视频需求描述' },
       aspect_ratio: {
@@ -408,7 +564,7 @@ export function apply(ctx: Context): void {
       const seconds = normalizeSeconds(args.seconds ?? 5)
       const images = (args.image_urls ?? []).filter(Boolean)
       const videos = (args.video_urls ?? []).filter(Boolean)
-      const mode = inferMode(images.length, args.mode)
+      const mode = inferMode(images.length, videos.length, args.mode)
 
       const config = resolveVideoConfig(ctx)
 
@@ -428,7 +584,7 @@ export function apply(ctx: Context): void {
 
       office.emitProgress('running', '等待视频生成', `任务 ${task.id} 正在处理中...`)
 
-      const result = await pollVideoTask(config, task.id)
+      const result = await pollVideoTask(config, task.videoId)
 
       if (!result.url) {
         throw new Error('视频生成完成但未返回 URL')
@@ -526,6 +682,7 @@ export function apply(ctx: Context): void {
       const aspectRatio = normalizeAspectRatio(args.aspect_ratio ?? '16:9')
       const maxShots = Math.max(1, Math.min(8, args.max_shots ?? 3))
       const secondsPerShot = normalizeSeconds(args.seconds_per_shot ?? 5)
+      const referenceImages = (args.image_urls ?? []).filter(Boolean)
 
       office.emitProgress('running', '规划视频分镜', `正在为《${topic}》规划分镜...`)
 
@@ -538,11 +695,14 @@ export function apply(ctx: Context): void {
         '请规划一份完整的视频分镜方案。',
       ].join('\n')
 
-      const json = await llmGenerateJson(ctx, STORYBOARD_SYSTEM_PROMPT, userPrompt)
-      const plan = json as unknown as StoryboardPlan
-
-      if (!plan.shots || !Array.isArray(plan.shots) || plan.shots.length === 0) {
-        throw new Error('LLM 返回的分镜数据格式不正确')
+      let plan: StoryboardPlan
+      try {
+        const json = await llmGenerateJson(ctx, STORYBOARD_SYSTEM_PROMPT, userPrompt)
+        plan = normalizeStoryboard(json, topic, aspectRatio, maxShots, secondsPerShot, referenceImages)
+      } catch (error) {
+        office.emitProgress('running', '使用默认分镜', 'LLM 未返回可解析 JSON，已切换为内置分镜方案继续生成。')
+        plan = fallbackStoryboard(topic, aspectRatio, maxShots, secondsPerShot, referenceImages)
+        void error
       }
 
       return {

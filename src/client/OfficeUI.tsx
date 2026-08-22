@@ -100,7 +100,7 @@ const LAYOUT_OVERRIDE_STYLES = `
 .wo-artifact-copy strong{font-size:13px}
 .wo-artifact-copy small{font-size:11px}
 .wo-mode-button{padding:0 12px;flex:0 0 auto}
-.wo-panel{width:min(880px,calc(100vw - 40px))!important;max-width:none!important}
+.wo-panel{width:100%!important;max-width:none!important;min-width:0!important}
 @media(max-width:760px){
   .wo-dock{width:calc(100% - 16px)!important;min-width:0!important;min-height:52px!important;padding:8px 10px!important}
   .wo-panel{width:calc(100vw - 16px)!important}
