@@ -1,6 +1,6 @@
 {
   "name": "walioffice-dsh-plugin",
-  "version": "0.1.12",
+  "version": "0.1.14",
   "description": "WaLiOffice 办公工具套件 — DeepSeek Harness (DSH) 插件",
   "type": "module",
   "main": "lib/index.js",
@@ -61,7 +61,8 @@
     "lib/index.js",
     "lib/index.d.ts",
     "lib/client.js",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    ".env.example"
   ],
   "dependencies": {
     "docx": "^9.0.0",

@@ -19,6 +19,7 @@ import {
 const ARTIFACT_STORAGE = 'walioffice:artifacts:v1'
 const MODE_STORAGE = 'walioffice:mode:v1'
 const MAX_ARTIFACTS = 24
+const OPEN_SOURCE_URL = 'https://github.com/fuzhengwei/walioffice-dsh-plugin'
 let hostOpenFile: ((path: string) => void) | undefined
 type OfficeOpenProps = { openOfficeDetails: () => void }
 type OfficeDockProps = OfficeOpenProps & { toggleOfficeDetails: () => void }
@@ -134,6 +135,10 @@ const LAYOUT_OVERRIDE_STYLES = `
 
 const DOCK_STABLE_HEIGHT_STYLES = `
 .wo-dock{min-height:52px}
+`
+
+const OPEN_SOURCE_LINK_STYLES = `
+.wo-panel-header-actions{display:flex;align-items:center;gap:8px}.wo-open-source-link{color:#2563eb;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap}.wo-open-source-link:hover{text-decoration:underline}.wo-open-source-link:focus-visible{outline:2px solid #93c5fd;outline-offset:2px;border-radius:3px}
 `
 
 export function OfficeDock({ useInput, inputActions, toggleOfficeDetails }: PropsRuntime<'conversation.input.dock'> & OfficeDockProps): JSX.Element {
@@ -259,7 +264,10 @@ export function OfficeDetailsPanel({ closeDetails }: { closeDetails: () => void 
           <span className="wo-logo">W</span>
           <div><strong>WaLiOffice</strong><span>打开即用，专注办公创作</span></div>
         </div>
-        <button type="button" className="wo-close" onClick={closeDetails} aria-label="关闭办公详情栏">×</button>
+        <div className="wo-panel-header-actions">
+          <a className="wo-open-source-link" href={OPEN_SOURCE_URL} target="_blank" rel="noopener noreferrer">开源项目</a>
+          <button type="button" className="wo-close" onClick={closeDetails} aria-label="关闭办公详情栏">×</button>
+        </div>
       </header>
       <nav className="wo-panel-tabs">
         <button type="button" data-active={tab === 'preview' ? 'true' : undefined} onClick={() => setTab('preview')}>产物汇总 <span>{artifacts.length}</span></button>
@@ -787,7 +795,7 @@ function safeFileName(value: string): string {
 }
 
 function OfficeStyles(): JSX.Element {
-  return <style>{STYLES + NATIVE_DETAILS_STYLES + RICH_PREVIEW_STYLES + DOCUMENT_PREVIEW_STYLES + LAYOUT_OVERRIDE_STYLES + DOCK_STABLE_HEIGHT_STYLES + DOWNLOAD_STYLES}</style>
+  return <style>{STYLES + NATIVE_DETAILS_STYLES + RICH_PREVIEW_STYLES + DOCUMENT_PREVIEW_STYLES + LAYOUT_OVERRIDE_STYLES + DOCK_STABLE_HEIGHT_STYLES + DOWNLOAD_STYLES + OPEN_SOURCE_LINK_STYLES}</style>
 }
 
 const HIDDEN_DOC_SECTION_HEADINGS = new Set(['需求原文', '待补充章节'])
