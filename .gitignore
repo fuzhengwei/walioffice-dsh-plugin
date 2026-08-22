@@ -26,3 +26,5 @@ tsconfig.tsbuildinfo
 
 # Temporary
 tmp/
+/walioffice-dsh-plugin-0.1.15.tgz
+/output/
