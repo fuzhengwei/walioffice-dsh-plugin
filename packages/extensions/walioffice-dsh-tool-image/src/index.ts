@@ -312,7 +312,7 @@ const STYLE_SYSTEM_PROMPT = `你是视觉提示词专家。只输出严格 JSON�
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'image_prompt',
-    description: '生成高质量图片：基于 Agnes Image 2.1 Flash，支持文生图和图生图（有参考图片时自动切换为图生图模式）。返回可预览的图片链接。',
+    description: '生成可预览的 AI 图片。只有用户明确要求生成图片、海报、封面、logo、配图、主视觉、插画、出图、改图、换风格、换背景或基于参考图创作时调用；支持文生图和图生图，不要把识图/OCR/图片分析问题误判为生成图片。',
     parameters: {
       topic: { type: 'string', required: true, description: '图片需求描述' },
       image_urls: {

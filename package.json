@@ -1,6 +1,6 @@
 {
   "name": "walioffice-dsh-plugin",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "WaLiOffice 办公工具套件 — DeepSeek Harness (DSH) 插件",
   "type": "module",
   "main": "lib/index.js",
@@ -76,8 +76,8 @@
     "@deepseek-ai/dsh-client-ui-layout": ">=0.1.0-rc.8",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.1.0-rc.8",
     "@deepseek-ai/dsh-client-ui-tool": ">=0.1.0-rc.8",
-    "@deepseek-ai/dsh-llm": "^0.0.1-rc.1",
-    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-llm": ">=0.1.0-rc.8",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.8",
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {

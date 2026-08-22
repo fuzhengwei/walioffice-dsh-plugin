@@ -192,7 +192,7 @@ async function generatePlanWithLlm(ctx: Context, topic: string): Promise<Present
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'ppt_generate',
-    description: '生成完整 PPT 项目（含视觉设计）：基于 ppt_plan 的大纲生成幻灯片，输出可直接下载的 .pptx 文件。使用前必须先调用 ppt_plan 规划大纲。',
+    description: '生成可直接下载的完整 PPT（.pptx），适用于演示文稿、汇报、路演、培训课件和发布会材料。优先读取 ppt_plan 的大纲；如果用户直接要求生成 PPT 或没有现成大纲，本工具会自动补齐规划后继续生成，不会因缺少前置调用而失败。',
     parameters: {
       topic: { type: 'string', required: true, description: 'PPT 主题' },
       theme: { type: 'string', description: '视觉主题：tech/business/warm/minimal（默认 tech，深色科技风）' },
@@ -206,7 +206,7 @@ export function apply(ctx: Context): void {
           title: { type: 'string', required: true },
           slideCount: { type: 'integer', required: true },
           filePath: { type: 'string', required: true },
-          download: { type: 'object' },
+          download: { type: 'object', additionalProperties: true },
           slides: { type: 'array' },
         },
       },

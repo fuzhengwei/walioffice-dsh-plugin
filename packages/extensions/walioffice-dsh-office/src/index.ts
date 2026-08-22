@@ -26,7 +26,7 @@ export interface OfficeArtifact {
   content: JsonValue
 }
 
-export interface OfficeDownload {
+export interface OfficeDownload extends Record<string, JsonValue> {
   fileName: string
   mimeType: string
   base64: string
@@ -307,33 +307,64 @@ export async function llmGenerateText(
  * Extract JSON from LLM output (handles markdown fences, surrounding text, etc.)
  */
 export function extractJson(text: string): JsonValue {
-  // Try direct parse first
+  const source = text.trim()
+  if (!source) throw new Error('No JSON found in LLM response')
+
   try {
-    return JSON.parse(text)
+    return JSON.parse(source)
   } catch { /* continue */ }
 
-  // Try to find JSON in markdown code block
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch?.[1]) {
+  const fenced = source.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)
+  for (const match of fenced) {
+    const candidate = match[1]?.trim()
+    if (!candidate) continue
     try {
-      return JSON.parse(fenceMatch[1])
+      return JSON.parse(candidate)
     } catch { /* continue */ }
   }
 
-  // Try to find first { or [ and last } or ]
-  const objStart = text.indexOf('{')
-  const arrStart = text.indexOf('[')
-  const start = objStart === -1 ? arrStart : arrStart === -1 ? objStart : Math.min(objStart, arrStart)
-  if (start === -1) {
-    throw new Error('No JSON found in LLM response')
+  let foundContainer = false
+  for (let start = 0; start < source.length; start += 1) {
+    if (source[start] !== '{' && source[start] !== '[') continue
+    foundContainer = true
+    const end = findJsonEnd(source, start)
+    if (end === -1) continue
+    try {
+      return JSON.parse(source.slice(start, end + 1))
+    } catch { /* continue */ }
   }
-  const isObj = text[start] === '{'
-  const end = isObj ? text.lastIndexOf('}') : text.lastIndexOf(']')
-  if (end === -1 || end < start) {
-    throw new Error('Incomplete JSON in LLM response')
+
+  throw new Error(foundContainer ? 'Incomplete or invalid JSON in LLM response' : 'No JSON found in LLM response')
+}
+
+function findJsonEnd(source: string, start: number): number {
+  const stack: string[] = []
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') inString = false
+      continue
+    }
+    if (character === '"') {
+      inString = true
+      continue
+    }
+    if (character === '{' || character === '[') {
+      stack.push(character)
+      continue
+    }
+    if (character !== '}' && character !== ']') continue
+    const opening = stack.pop()
+    if ((character === '}' && opening !== '{') || (character === ']' && opening !== '[')) return -1
+    if (stack.length === 0) return index
   }
-  const jsonStr = text.slice(start, end + 1)
-  return JSON.parse(jsonStr)
+
+  return -1
 }
 
 // ── Office service declaration ──────────────────────────────────────────────

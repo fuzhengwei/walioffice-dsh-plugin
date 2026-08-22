@@ -188,7 +188,7 @@ export function apply(ctx: Context): void {
   // ── doc_generate ──────────────────────────────────────────────────────────
   ctx.tools.register(defineTool({
     name: 'doc_generate',
-    description: '生成结构化 Word 文档（.docx）：支持报告/计划/总结/文章/PRD 格式，包含章节、段落、要点和表格。',
+    description: '生成可下载的结构化 Word 文档（.docx）。用户明确要 Word、docx、报告、方案书、项目计划、总结、文章或 PRD 时调用；包含章节、段落、要点和表格，不要用于 Markdown/README/知识库文件。',
     parameters: {
       topic: { type: 'string', required: true, description: '文档主题/用户需求' },
       audience: { type: 'string', description: '目标读者（可选）' },
@@ -206,7 +206,7 @@ export function apply(ctx: Context): void {
           title: { type: 'string', required: true },
           sectionCount: { type: 'integer', required: true },
           filePath: { type: 'string', required: true },
-          download: { type: 'object' },
+          download: { type: 'object', additionalProperties: true },
           format: { type: 'string' },
           markdown: { type: 'string' },
           sections: { type: 'array' },
@@ -301,7 +301,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'md_generate',
-    description: '仅生成 Markdown（.md）文件，适合知识库、README、说明文档、会议纪要、调研整理、操作手册；不要用于 Word 或 .docx，Word 必须调用 doc_generate。',
+    description: '生成可下载的 Markdown（.md）文件。用户提到 Markdown、md、README、知识库、说明文档、操作手册、会议纪要、调研整理或教程时调用；不要用于 Word/.docx，Word 必须调用 doc_generate。',
     parameters: {
       topic: { type: 'string', required: true, description: 'Markdown 文档主题/用户需求' },
       style: {
@@ -318,7 +318,7 @@ export function apply(ctx: Context): void {
         properties: {
           title: { type: 'string', required: true },
           filePath: { type: 'string', required: true },
-          download: { type: 'object' },
+          download: { type: 'object', additionalProperties: true },
           markdown: { type: 'string', required: true },
         },
       },

@@ -32,7 +32,8 @@
 
 安装后，DSH Web 会增加 WaLiOffice 客户端界面：
 
-- 输入框上方的办公类型栏，可选择 Word、Excel、PPT、图表、Draw.io、图片和视频
+- 输入框上方的办公类型栏，可选择 Word、Markdown、Excel、PPT、图表、Draw.io、图片和视频
+- 综合模式会按交付物类型主动路由工具；明确要求文件类型时优先遵循用户指定，不会把“只要图表”误判为 Excel
 - 页面右侧的 WaLiOffice 面板，集中展示工具入口与最近产物
 - 10 个办公工具的专属执行结果卡片
 - 工具执行完成后，产物自动进入右侧预览与汇总列表
@@ -55,7 +56,7 @@ dsh plugin --profile web add walioffice-dsh-plugin
 安装指定版本（将版本替换为目标版本）：
 
 ```bash
-dsh plugin --profile web add walioffice-dsh-plugin@0.1.13
+dsh plugin --profile web add walioffice-dsh-plugin@0.1.15
 ```
 
 ### 3. 启动 DSH Web
@@ -165,7 +166,7 @@ cordis.patch.yml
 
 ```bash
 pnpm pack
-dsh plugin --profile web add /absolute/path/to/walioffice-dsh-plugin-0.1.13.tgz
+dsh plugin --profile web add /absolute/path/to/walioffice-dsh-plugin-0.1.15.tgz
 dsh web
 ```
 

@@ -86,7 +86,7 @@ function normalizeSheetOutput(value: unknown, topic: string, sheetCount: number)
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'sheet_generate',
-    description: '生成结构化表格（可导出 Excel）：根据主题生成多表数据，适合数据分析、排期、预算、指标明细等场景。',
+    description: '生成可下载的结构化 Excel 表格（.xlsx）。用户提到 Excel、xlsx、表格、数据明细、数据分析、排期、预算、指标、台账、清单或 CSV 整理时调用；自动设计字段、表头、示例数据和多张工作表。若用户只想看趋势/占比图，不要调用本工具，优先使用 chart_generate。',
     parameters: {
       topic: { type: 'string', required: true, description: '表格主题/用户需求' },
       sheets: { type: 'integer', description: '表格数量（默认 1）' },
@@ -99,7 +99,7 @@ export function apply(ctx: Context): void {
           tableCount: { type: 'integer', required: true },
           totalRows: { type: 'integer', required: true },
           filePath: { type: 'string', required: true },
-          download: { type: 'object' },
+          download: { type: 'object', additionalProperties: true },
           tables: { type: 'array' },
         },
       },

@@ -7,6 +7,7 @@ import {
   OFFICE_MODES,
   OFFICE_PANEL_EVENT,
   artifactFromTool,
+  modeForTool,
   modeDefinition,
   openOfficePanel,
   publishArtifact,
@@ -26,6 +27,7 @@ type OfficeDockProps = OfficeOpenProps & { toggleOfficeDetails: () => void }
 const FILE_CATEGORIES: { id: OfficeMode; label: string }[] = [
   { id: 'all', label: '全部' },
   { id: 'doc', label: 'Word' },
+  { id: 'markdown', label: 'Markdown' },
   { id: 'sheet', label: 'Excel' },
   { id: 'ppt', label: 'PPT' },
   { id: 'image', label: '图片' },
@@ -38,7 +40,7 @@ const NATIVE_DETAILS_STYLES = `
 @media(max-width:760px){.wo-panel{position:relative;inset:auto;width:100%;height:100%}}
 `
 const RICH_PREVIEW_STYLES = `
-.wo-rich{padding:0 12px 12px}.wo-meta-grid{display:grid;gap:8px}.wo-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 12px 12px}.wo-kpi{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-kpi strong{display:block;font-size:16px}.wo-kpi span{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin-top:4px}.wo-chart-bars{display:flex;flex-direction:column;gap:8px}.wo-bar-row{display:grid;grid-template-columns:72px minmax(0,1fr) 48px;gap:8px;align-items:center}.wo-bar-row label,.wo-bar-row em{font-size:11px;color:var(--dsw-alias-label-secondary,#4b5563);font-style:normal}.wo-bar-track{height:10px;border-radius:999px;background:#e5eefc;overflow:hidden}.wo-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#2563eb)}.wo-chart-svg{width:100%;height:auto;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;background:#fff}.wo-pie{width:180px;height:180px;border-radius:999px;margin:0 auto;background:conic-gradient(#7c3aed 0deg,#2563eb 120deg,#06b6d4 240deg,#ec4899 360deg)}.wo-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}.wo-legend-item{display:flex;align-items:center;gap:6px;font-size:11px}.wo-dot{width:10px;height:10px;border-radius:999px;display:inline-block}.wo-md{display:flex;flex-direction:column;gap:8px}.wo-md h1,.wo-md h2,.wo-md h3,.wo-md p,.wo-md ul{margin:0}.wo-md h1{font-size:16px}.wo-md h2{font-size:14px}.wo-md h3{font-size:13px}.wo-md p,.wo-md li{font-size:12px;line-height:1.65;color:var(--dsw-alias-label-secondary,#4b5563)}.wo-md ul{padding-left:18px}.wo-table-wrap{overflow:auto;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;background:#fff}.wo-table{width:100%;border-collapse:collapse;font-size:12px}.wo-table th,.wo-table td{padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);text-align:left;white-space:nowrap}.wo-table th{background:#f8fafc;color:#334155}.wo-slides{display:flex;flex-direction:column;gap:8px}.wo-slide{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-slide strong{display:block;font-size:12px}.wo-slide span,.wo-slide p{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin:4px 0 0}.wo-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wo-media-grid img,.wo-video{width:100%;border-radius:12px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:#fff}.wo-xml{margin:0;padding:12px;border-radius:12px;background:var(--dsw-alias-markdown-code-block,#f6f7f9);font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}.wo-storyboard{display:flex;flex-direction:column;gap:8px}.wo-story{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-story strong{font-size:12px}.wo-story p,.wo-story code{display:block;font-size:11px;color:var(--dsw-alias-label-secondary,#4b5563);margin-top:4px}.wo-preview-fallback{margin-top:12px}.wo-preview-fallback summary{cursor:pointer;font-size:12px;color:#2563eb}.wo-error-box{margin:12px;padding:12px;border-radius:12px;background:#ecfdf5;color:#166534;font-size:12px;line-height:1.6}.wo-error-raw{margin:12px;padding:12px;border-radius:12px;background:#f8fafc;color:#475569;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.wo-kpis,.wo-media-grid,.wo-legend{grid-template-columns:1fr}}
+.wo-rich{padding:0 12px 12px}.wo-meta-grid{display:grid;gap:8px}.wo-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 12px 12px}.wo-kpi{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-kpi strong{display:block;font-size:16px}.wo-kpi span{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin-top:4px}.wo-chart-bars{display:flex;flex-direction:column;gap:8px}.wo-bar-row{display:grid;grid-template-columns:72px minmax(0,1fr) 48px;gap:8px;align-items:center}.wo-bar-row label,.wo-bar-row em{font-size:11px;color:var(--dsw-alias-label-secondary,#4b5563);font-style:normal}.wo-bar-track{height:10px;border-radius:999px;background:#e5eefc;overflow:hidden}.wo-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#2563eb)}.wo-chart-svg{width:100%;height:auto;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;background:#fff}.wo-pie{width:180px;height:180px;border-radius:999px;margin:0 auto;background:conic-gradient(#7c3aed 0deg,#2563eb 120deg,#06b6d4 240deg,#ec4899 360deg)}.wo-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}.wo-legend-item{display:flex;align-items:center;gap:6px;font-size:11px}.wo-dot{width:10px;height:10px;border-radius:999px;display:inline-block}.wo-md{display:flex;flex-direction:column;gap:8px}.wo-md h1,.wo-md h2,.wo-md h3,.wo-md p,.wo-md ul{margin:0}.wo-md h1{font-size:16px}.wo-md h2{font-size:14px}.wo-md h3{font-size:13px}.wo-md p,.wo-md li{font-size:12px;line-height:1.65;color:var(--dsw-alias-label-secondary,#4b5563)}.wo-md ul{padding-left:18px}.wo-table-wrap{overflow:auto;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;background:#fff}.wo-table{width:100%;border-collapse:collapse;font-size:12px}.wo-table th,.wo-table td{padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);text-align:left;white-space:nowrap}.wo-table th{background:#f8fafc;color:#334155}.wo-slides{display:flex;flex-direction:column;gap:8px}.wo-slide{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-slide strong{display:block;font-size:12px}.wo-slide span,.wo-slide p{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin:4px 0 0}.wo-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wo-media-grid img,.wo-video{width:100%;border-radius:12px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:#fff}.wo-xml{margin:0;padding:12px;border-radius:12px;background:var(--dsw-alias-markdown-code-block,#f6f7f9);font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}.wo-storyboard{display:flex;flex-direction:column;gap:8px}.wo-story{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:12px;padding:10px;background:#fff}.wo-story strong{font-size:12px}.wo-story p,.wo-story code{display:block;font-size:11px;color:var(--dsw-alias-label-secondary,#4b5563);margin-top:4px}.wo-preview-fallback{margin-top:12px}.wo-preview-fallback summary{cursor:pointer;font-size:12px;color:#2563eb}.wo-error-box{margin:12px;padding:12px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b91c1c;font-size:12px;line-height:1.6}.wo-error-box strong{display:block;margin-bottom:4px}.wo-error-box p{margin:0}.wo-error-details{margin:0 12px 12px;border:1px solid #fecaca;border-radius:10px;background:#fff7f7}.wo-error-details summary{padding:8px 10px;color:#b91c1c;font-size:11px;cursor:pointer}.wo-error-raw{margin:0;padding:12px;border-top:1px solid #fecaca;border-radius:0;background:#fff7f7;color:#991b1b;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.wo-kpis,.wo-media-grid,.wo-legend{grid-template-columns:1fr}}
 `
 const DOWNLOAD_STYLES = `
 .wo-download-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:linear-gradient(180deg,#fff,#f8fbff)}.wo-download-title{min-width:0;display:flex;flex-direction:column;gap:3px}.wo-download-title strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-download-title span{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-download-button{border:1px solid #93c5fd;border-radius:8px;background:#eff6ff;color:#1d4ed8;padding:6px 10px;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer}.wo-download-button:hover{background:#dbeafe}
@@ -165,9 +167,11 @@ export function OfficeDock({ useInput, inputActions, toggleOfficeDetails }: Prop
           type="button"
           className="wo-mode-button"
           data-active={mode === item.id ? 'true' : undefined}
+          aria-pressed={mode === item.id}
           style={{ '--wo-mode-color': item.color } as CSSProperties}
           onClick={() => selectMode(item.id)}
-          title={item.label}
+          title={`${item.label}：${modeDescription(item.id)}`}
+          aria-label={`${item.label}：${modeDescription(item.id)}`}
         >
           <span className="wo-mode-dot" />
           {item.shortLabel}
@@ -214,7 +218,7 @@ export function OfficeToolView({ toolName, callId, block, openFile, inspect, ope
         {artifact.filePath && <code>{artifact.filePath}</code>}
       </div>}
       <div className="wo-tool-actions">
-        {artifact && <button type="button" onClick={() => { openOfficeDetails(); openOfficePanel(artifact.id) }}>查看产物</button>}
+        {artifact && <button type="button" onClick={() => { openOfficeDetails(); openOfficePanel(artifact.id) }}>{artifact.isError ? '查看错误' : '查看产物'}</button>}
         {artifact && canDownloadArtifact(artifact) && <button type="button" onClick={() => { void downloadArtifact(artifact, openFile) }}>下载文件</button>}
         {artifact?.filePath && <button type="button" onClick={() => openFile(artifact.filePath!)}>打开文件</button>}
         {inspect && <button type="button" onClick={inspect}>执行详情</button>}
@@ -361,8 +365,11 @@ function ArtifactThumbnail({ artifact }: { artifact: OfficeArtifact }): JSX.Elem
 function ArtifactPreview({ artifact }: { artifact: OfficeArtifact }): JSX.Element {
   if (artifact.isError) {
     return <div className="wo-preview-card">
-      <div className="wo-error-box">{artifact.output || '执行失败，未返回更多错误细节。'}</div>
-      <pre className="wo-error-raw">{artifact.output || 'Error: unknown'}</pre>
+      <div className="wo-error-box"><strong>生成失败</strong><p>{artifact.output || '执行失败，未返回更多错误细节。'}</p></div>
+      <details className="wo-error-details">
+        <summary>查看原始错误</summary>
+        <pre className="wo-error-raw">{artifact.output || 'Error: unknown'}</pre>
+      </details>
     </div>
   }
 
@@ -823,7 +830,7 @@ function compactPreviewTitle(value: string): string {
 }
 
 function artifactDisplayTitle(artifact: OfficeArtifact): string {
-  if (artifact.mode === 'doc' || artifact.meta?.kind === 'doc') {
+  if (artifact.mode === 'doc' || artifact.mode === 'markdown' || artifact.meta?.kind === 'doc') {
     return compactPreviewTitle(artifact.meta?.kind === 'doc' ? artifact.meta.title : artifact.title)
   }
   return artifact.title
@@ -870,10 +877,19 @@ function readArtifacts(): OfficeArtifact[] {
   if (!value) return []
   try {
     const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.slice(0, MAX_ARTIFACTS) as OfficeArtifact[] : []
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item): item is OfficeArtifact => typeof item === 'object' && item !== null && typeof item.id === 'string' && typeof item.toolName === 'string')
+      .map(item => ({ ...item, mode: normalizeStoredMode(item) }))
+      .slice(0, MAX_ARTIFACTS)
   } catch {
     return []
   }
+}
+
+function normalizeStoredMode(artifact: OfficeArtifact): OfficeMode {
+  if (artifact.toolName === 'md_generate' || artifact.meta?.kind === 'markdown') return 'markdown'
+  return OFFICE_MODES.some(item => item.id === artifact.mode) ? artifact.mode : modeForTool(artifact.toolName)
 }
 
 function safeStorageGet(key: string): string | null {
@@ -894,14 +910,7 @@ function readTopic(argsRaw: string): string {
 }
 
 function modeForToolName(toolName: string): OfficeMode {
-  if (toolName.startsWith('ppt_')) return 'ppt'
-  if (toolName === 'doc_generate' || toolName === 'md_generate') return 'doc'
-  if (toolName === 'sheet_generate') return 'sheet'
-  if (toolName === 'chart_generate') return 'chart'
-  if (toolName === 'drawio_generate') return 'drawio'
-  if (toolName === 'image_prompt') return 'image'
-  if (toolName.startsWith('video_')) return 'video'
-  return 'all'
+  return modeForTool(toolName)
 }
 
 function toolTitle(toolName: string): string {
@@ -925,6 +934,7 @@ function OfficeTypeIcon({ mode }: { mode: OfficeMode }): JSX.Element {
   const common = { className: 'wo-type-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
   switch (mode) {
     case 'doc': return <svg {...common}><path d="M6 3.5h8l4 4V20.5H6z" /><path d="M14 3.5v4h4M9 12h6M9 15.5h6" /></svg>
+    case 'markdown': return <svg {...common}><path d="M4 5.5h16v13H4z" /><path d="M7 15v-4l2.5 2.5L12 11v4M15 11v4M15 15l2-2" /></svg>
     case 'sheet': return <svg {...common}><rect x="4" y="3.5" width="16" height="17" rx="2" /><path d="M4 9h16M4 14h16M10 9v11.5M15 9v11.5" /></svg>
     case 'ppt': return <svg {...common}><rect x="3.5" y="5" width="17" height="13" rx="2" /><path d="M7 9h6M7 12h4M7 15h8M17.5 5v-2" /></svg>
     case 'chart': return <svg {...common}><path d="M4 20V10M10 20V5M16 20v-8M22 20H2" /></svg>
@@ -937,7 +947,7 @@ function OfficeTypeIcon({ mode }: { mode: OfficeMode }): JSX.Element {
 }
 
 function modeDescription(mode: OfficeMode): string {
-  return ({ all: '自动选择工具', doc: '报告、方案与说明书', sheet: '数据、预算与分析表', ppt: '汇报、路演与培训课件', chart: '柱状、折线与饼图', drawio: '流程、架构与关系图', image: '封面、插图与视觉素材', video: '分镜与短视频生成' })[mode]
+  return ({ all: '自动选择工具', doc: '报告、方案与说明书', markdown: 'README、知识库与操作手册', sheet: '数据、预算与分析表', ppt: '汇报、路演与培训课件', chart: '柱状、折线与饼图', drawio: '流程、架构与关系图', image: '封面、插图与视觉素材', video: '分镜与短视频生成' })[mode]
 }
 
 function formatTime(value: number): string {

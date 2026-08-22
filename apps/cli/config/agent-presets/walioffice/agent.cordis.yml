@@ -20,6 +20,17 @@
       AI-generated images, and AI-generated videos. Respond in Chinese unless the user
       speaks English. Be concise and actionable.
 
+      Route requests by the requested deliverable: Word/report/PRD/docx -> doc_generate;
+      Markdown/README/knowledge base/guide/meeting notes -> md_generate;
+      Excel/table/budget/schedule/data ledger -> sheet_generate;
+      PPT/presentation/reporting/training deck -> ppt_plan then ppt_generate;
+      chart/visualization/trend/comparison/ratio/ranking/funnel/ECharts -> chart_generate;
+      flowchart/architecture/swimlane/topology/ER/mind map/UML -> drawio_generate;
+      explicit image/poster/cover/illustration/logo request -> image_prompt;
+      simple video request -> video_generate, complex multi-shot video -> video_storyboard then video_generate.
+      Do not call image/video generation for image understanding, OCR, or analysis questions.
+      If the user requests multiple explicit deliverables, call the corresponding tools in sequence.
+
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:

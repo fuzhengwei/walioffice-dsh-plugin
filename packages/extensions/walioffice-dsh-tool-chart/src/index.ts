@@ -37,13 +37,15 @@ const SYSTEM_PROMPT = `你是数据分析专家。只输出严格 JSON，不要 
 要求：
 - labels 和 values 长度必须一致
 - values 为纯数字，不含单位
+- 用户指定 chart_type 时必须优先遵循
+- pie/funnel/gauge 的 values 必须为非负数
 - 用户给数据时贴合业务场景补合理示例
 - chart_type 从 line/bar/pie/gauge/funnel/scatter 中选择`
 
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'chart_generate',
-    description: '生成 ECharts 图表数据：支持趋势(line)、对比(bar)、占比(pie)、排名(bar)、漏斗(funnel)、仪表盘(gauge)、散点(scatter)，适合普通对话中的数据可视化。',
+    description: '生成可直接渲染的 ECharts 图表数据。用户提到图表、可视化、趋势图、折线图、柱状图、饼图、占比/分布、排名、漏斗、仪表盘、散点或“用 ECharts 展示”时调用；没有真实数据时自动生成贴合主题的示例数据，LLM 返回异常时使用内置模板继续交付。',
     parameters: {
       topic: { type: 'string', required: true, description: '图表主题/用户需求' },
       chart_type: {
@@ -154,14 +156,16 @@ function normalizeChartOutput(value: unknown, topic: string, chartType: ChartTyp
     ? raw.values.map(item => typeof item === 'number' ? item : typeof item === 'string' && item.trim() ? Number(item) : Number.NaN)
     : []
 
-  if (labels.length === 0 || labels.length !== values.length || values.some(value => !Number.isFinite(value))) {
+  const normalizedChartType = normalizeChartType(raw.chart_type ?? raw.chartType, chartType)
+  const requiresNonNegative = normalizedChartType === 'pie' || normalizedChartType === 'funnel' || normalizedChartType === 'gauge'
+  if (labels.length === 0 || labels.length !== values.length || values.some(value => !Number.isFinite(value)) || (requiresNonNegative && values.some(value => value < 0))) {
     throw new Error('LLM 返回的图表数据格式不正确：labels 和 values 长度或数值不合法')
   }
 
   return {
     title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : topic,
     summary: typeof raw.summary === 'string' ? raw.summary : `围绕“${topic}”生成的${chartType}图表。`,
-    chart_type: normalizeChartType(raw.chart_type ?? raw.chartType, chartType),
+    chart_type: normalizedChartType,
     labels,
     values,
     series_name: typeof raw.series_name === 'string'
@@ -172,7 +176,7 @@ function normalizeChartOutput(value: unknown, topic: string, chartType: ChartTyp
 
 function fallbackChart(topic: string, chartType: ChartType): ChartOutput {
   const isLoginTopic = /登录|登陆|认证|登录状态|login/i.test(topic)
-  const isAiTopic = /大语言模型|计算机视觉|自然语言处理|机器学习|强化学习|知识图谱|多模态\s*AI|AI\s*Agent/i.test(topic)
+  const isAiTopic = /AI技术|人工智能|大语言模型|计算机视觉|自然语言处理|机器学习|强化学习|知识图谱|多模态\s*AI|AI\s*Agent/i.test(topic)
   const labels = isLoginTopic
     ? ['登录成功', '密码错误', '账号锁定', '验证码错误', '账号不存在']
     : isAiTopic

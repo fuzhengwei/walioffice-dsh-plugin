@@ -103,7 +103,7 @@ const SYSTEM_PROMPT = `你是资深演示文稿策划。请规划一份可以直
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'ppt_plan',
-    description: '规划 PPT 大纲：根据主题和受众规划幻灯片结构（标题、布局、要点）。这是 PPT 生成的第一步，只产出规划，不生成最终幻灯片。生成 PPT 时必须先调用此工具，再调用 ppt_generate。',
+    description: '规划 PPT/演示文稿/幻灯片/汇报材料/课件的大纲：输出标题、页面结构、布局和要点，不生成最终文件。复杂或正式 PPT 任务应先调用本工具，再调用 ppt_generate；如果用户只要大纲/方案，则到此为止。',
     parameters: {
       topic: { type: 'string', required: true, description: 'PPT 主题/用户需求' },
       audience: { type: 'string', description: '目标受众（可选）' },

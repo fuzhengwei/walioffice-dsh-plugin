@@ -506,7 +506,7 @@ async function pollVideoTask(
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'video_generate',
-    description: '生成视频：基于 Agnes Video V2.0，支持 text/keyframe/reference 三种模式（0图→text，1-2图→keyframe，3+图→reference），支持从会话历史产物提取图片。复杂视频建议先调用 video_storyboard 分镜。',
+    description: '生成可预览的 AI 视频。只有用户明确要求视频、短片、短视频、宣传片、广告、动画、片头、转场、让图片动起来或图生视频时调用；支持 text/keyframe/reference 模式并可复用会话图片，复杂多镜头需求先调用 video_storyboard。',
     parameters: {
       topic: { type: 'string', required: true, description: '视频需求描述' },
       aspect_ratio: {
@@ -633,7 +633,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'video_storyboard',
-    description: '视频分镜规划：将复杂视频需求拆分为多个镜头，每个镜头含英文提示词、时长、模式。规划完成后可逐镜头调用 video_generate 生成。',
+    description: '规划复杂视频分镜：用户要求多场景、多镜头、故事线、宣传片或完整短片时先调用本工具，再按镜头调用 video_generate；输出每镜头的英文提示词、时长、生成模式和参考图分配，不直接生成视频。',
     parameters: {
       topic: { type: 'string', required: true, description: '视频需求描述' },
       aspect_ratio: {

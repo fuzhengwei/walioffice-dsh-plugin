@@ -101,7 +101,7 @@ function extractDrawioXml(content: string): string | null {
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'drawio_generate',
-    description: '生成 draw.io 可编辑图表（流程图/架构图/泳道图/拓扑图/ER图/思维导图），输出 draw.io XML，可在右侧直接渲染和编辑。',
+    description: '生成可编辑的 draw.io 图表并输出 XML。用户提到 draw.io、流程图、架构图、系统图、泳道图、拓扑图、ER 图、实体关系、思维导图、UML 或数据流图时调用；右侧支持预览，并可下载 .drawio 文件。',
     parameters: {
       topic: { type: 'string', required: true, description: '图表主题/用户需求' },
       diagram_type: {
@@ -118,7 +118,7 @@ export function apply(ctx: Context): void {
           title: { type: 'string', required: true },
           diagramType: { type: 'string', required: true },
           xml: { type: 'string', required: true },
-          download: { type: 'object' },
+          download: { type: 'object', additionalProperties: true },
         },
       },
       render: (_args, value) => [{
