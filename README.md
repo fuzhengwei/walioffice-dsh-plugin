@@ -23,7 +23,7 @@
 | `chart_generate` | 生成 ECharts 图表配置 | JSON |
 | `drawio_generate` | 生成 draw.io 图表 | XML |
 | `image_prompt` | 调用 Agnes Image API 生成图片 | 图片 URL |
-| `video_generate` | 调用 Agnes Video API 生成视频 | 视频 URL |
+| `wali_video_generate` | 调用 Agnes Video API 生成视频 | 视频 URL |
 | `video_storyboard` | 生成视频分镜方案 | JSON |
 
 生成的 `.pptx`、`.docx`、`.xlsx` 和 `.md` 文件默认保存在启动 DSH 时工作目录下的 `output/` 目录。图片与视频工具返回远程资源 URL，不会自动把远程资源下载到该目录。
@@ -141,7 +141,7 @@ dsh web
 
 ### 图片和视频工具（可选）
 
-只有使用 `image_prompt`、`video_generate` 或 `video_storyboard` 时，才需要额外配置图片或视频 API。配置图片 API 时，逐条执行：
+只有使用 `image_prompt`、`wali_video_generate` 或 `video_storyboard` 时，才需要额外配置图片或视频 API。配置图片 API 时，逐条执行：
 
 ```bash
 export AGNES_IMAGE_BASE_URL=https://your-image-api.example.com

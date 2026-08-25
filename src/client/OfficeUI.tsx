@@ -917,7 +917,7 @@ function toolTitle(toolName: string): string {
   const titles: Record<string, string> = {
     ppt_plan: 'PPT 大纲规划', ppt_generate: 'PPT 演示生成', doc_generate: 'Word 文档生成', md_generate: 'Markdown 文档生成',
     sheet_generate: 'Excel 表格生成', chart_generate: '数据图表生成', drawio_generate: 'Draw.io 图表生成', image_prompt: 'AI 图片生成',
-    video_generate: 'AI 视频生成', video_storyboard: '视频分镜规划',
+    wali_video_generate: 'AI 视频生成', video_storyboard: '视频分镜规划',
   }
   return titles[toolName] ?? toolName
 }

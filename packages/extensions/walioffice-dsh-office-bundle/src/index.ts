@@ -10,7 +10,7 @@
  * - chart_generate — ECharts 图表
  * - drawio_generate — draw.io 图表
  * - image_prompt — AI 图片生成
- * - video_generate / video_storyboard — AI 视频生成 + 分镜规划
+ * - wali_video_generate / video_storyboard — AI 视频生成 + 分镜规划
  * 
  * Usage in cordis.yml:
  *   plugins:
@@ -54,5 +54,5 @@ export function apply(ctx: Context): void {
   ctx.plugin(imagePlugin)
   ctx.plugin(videoPlugin)
 
-  console.log('[WaLiOffice] Registered 10 office tools: ppt_plan, ppt_generate, doc_generate, md_generate, sheet_generate, chart_generate, drawio_generate, image_prompt, video_generate, video_storyboard')
+  console.log('[WaLiOffice] Registered 10 office tools: ppt_plan, ppt_generate, doc_generate, md_generate, sheet_generate, chart_generate, drawio_generate, image_prompt, wali_video_generate, video_storyboard')
 }

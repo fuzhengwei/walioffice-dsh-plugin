@@ -1,5 +1,5 @@
 /**
- * Video generation tools: video_generate and video_storyboard
+ * Video generation tools: wali_video_generate and video_storyboard
  * Uses Agnes Video V2.0 API.
  * 
  * @module @walioffice/dsh-tool-video
@@ -501,12 +501,12 @@ async function pollVideoTask(
   throw new Error(`视频生成超时${lastError ? `：${lastError}` : ''}`)
 }
 
-// ── video_generate tool ─────────────────────────────────────────────────────
+// ── wali_video_generate tool ────────────────────────────────────────────────
 
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
-    name: 'video_generate',
-    description: '生成可预览的 AI 视频。只有用户明确要求视频、短片、短视频、宣传片、广告、动画、片头、转场、让图片动起来或图生视频时调用；支持 text/keyframe/reference 模式并可复用会话图片，复杂多镜头需求先调用 video_storyboard。',
+    name: 'wali_video_generate',
+    description: '生成可预览的 AI 视频。只有用户明确要求视频、短片、短视频、宣传片、广告、动画、片头、转场、让图片动起来或图生视频时调用；支持 text/keyframe/reference 模式并可复用会话图片，复杂多镜头需求先调用 video_storyboard。工具名为 wali_video_generate。',
     parameters: {
       topic: { type: 'string', required: true, description: '视频需求描述' },
       aspect_ratio: {
@@ -633,7 +633,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'video_storyboard',
-    description: '规划复杂视频分镜：用户要求多场景、多镜头、故事线、宣传片或完整短片时先调用本工具，再按镜头调用 video_generate；输出每镜头的英文提示词、时长、生成模式和参考图分配，不直接生成视频。',
+    description: '规划复杂视频分镜：用户要求多场景、多镜头、故事线、宣传片或完整短片时先调用本工具，再按镜头调用 wali_video_generate；输出每镜头的英文提示词、时长、生成模式和参考图分配，不直接生成视频。',
     parameters: {
       topic: { type: 'string', required: true, description: '视频需求描述' },
       aspect_ratio: {

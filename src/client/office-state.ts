@@ -76,7 +76,7 @@ export const OFFICE_MODES: readonly OfficeModeDefinition[] = [
     label: '综合办公',
     shortLabel: '综合',
     color: '#111827',
-    prompt: '请根据需求主动选择并调用最合适的办公工具：Word/报告/PRD 用 doc_generate；Markdown/README/知识库/操作手册用 md_generate；Excel/表格/预算/排期用 sheet_generate；PPT/演示/汇报先 ppt_plan 再 ppt_generate；趋势/对比/占比/排名/漏斗/ECharts 用 chart_generate；流程/架构/泳道/ER/思维导图用 drawio_generate；生成图片/海报/插画用 image_prompt；复杂视频先 video_storyboard，再按需 video_generate。除非用户明确要求文件，不要为了凑产物调用多个工具。\n用户需求：',
+    prompt: '请根据需求主动选择并调用最合适的办公工具：Word/报告/PRD 用 doc_generate；Markdown/README/知识库/操作手册用 md_generate；Excel/表格/预算/排期用 sheet_generate；PPT/演示/汇报先 ppt_plan 再 ppt_generate；趋势/对比/占比/排名/漏斗/ECharts 用 chart_generate；流程/架构/泳道/ER/思维导图用 drawio_generate；生成图片/海报/插画用 image_prompt；复杂视频先 video_storyboard，再按需 wali_video_generate。除非用户明确要求文件，不要为了凑产物调用多个工具。\n用户需求：',
   },
   { id: 'doc', label: 'Word 文档', shortLabel: 'Word', color: '#16a34a', prompt: '请只使用 doc_generate（不要使用 md_generate）生成一份专业 Word 文档（.docx）。根据需求自动选择报告、计划、总结、文章或 PRD 结构：\n用户需求：' },
   { id: 'markdown', label: 'Markdown 文档', shortLabel: 'MD', color: '#475569', prompt: '请只使用 md_generate 生成一份可直接保存的 Markdown 文档（.md），适合 README、知识库、说明文档、操作手册、会议纪要或调研整理：\n用户需求：' },
@@ -85,7 +85,7 @@ export const OFFICE_MODES: readonly OfficeModeDefinition[] = [
   { id: 'chart', label: '数据图表', shortLabel: '图表', color: '#7c3aed', prompt: '请使用 chart_generate 生成一份可直接渲染的 ECharts 图表；趋势用 line，对比/排名用 bar，占比/分布用 pie，漏斗用 funnel，达成率用 gauge：\n用户需求：' },
   { id: 'drawio', label: 'Draw.io 图', shortLabel: 'Draw.io', color: '#ea580c', prompt: '请使用 drawio_generate 生成一份可编辑的 draw.io 图表（流程图、架构图、泳道图、拓扑图、ER 图或思维导图）：\n用户需求：' },
   { id: 'image', label: 'AI 图片', shortLabel: '图像', color: '#db2777', prompt: '请使用 image_prompt 生成符合需求的图片、海报、封面、插画或视觉素材：\n用户需求：' },
-  { id: 'video', label: 'AI 视频', shortLabel: '视频', color: '#e11d48', prompt: '请使用 video_generate 生成视频；如果需求包含多场景、多镜头或故事线，先使用 video_storyboard 规划分镜：\n用户需求：' },
+  { id: 'video', label: 'AI 视频', shortLabel: '视频', color: '#e11d48', prompt: '请使用 wali_video_generate 生成视频；如果需求包含多场景、多镜头或故事线，先使用 video_storyboard 规划分镜：\n用户需求：' },
 ]
 
 export const OFFICE_TOOLS = [
@@ -97,7 +97,7 @@ export const OFFICE_TOOLS = [
   'chart_generate',
   'drawio_generate',
   'image_prompt',
-  'video_generate',
+  'wali_video_generate',
   'video_storyboard',
 ] as const
 
