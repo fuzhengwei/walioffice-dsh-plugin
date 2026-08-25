@@ -2,7 +2,7 @@
 #
 # Mounts the walioffice-bundle plugin which registers 10 office tools:
 # ppt_plan, ppt_generate, doc_generate, md_generate, sheet_generate,
-# chart_generate, drawio_generate, image_prompt, video_generate, video_storyboard
+# chart_generate, drawio_generate, image_prompt, wali_video_generate, video_storyboard
 #
 # Environment variables:
 # - WALIOFFICE_LLM_PROVIDER / WALIOFFICE_LLM_MODEL — LLM provider/model for tool logic
@@ -27,7 +27,7 @@
       chart/visualization/trend/comparison/ratio/ranking/funnel/ECharts -> chart_generate;
       flowchart/architecture/swimlane/topology/ER/mind map/UML -> drawio_generate;
       explicit image/poster/cover/illustration/logo request -> image_prompt;
-      simple video request -> video_generate, complex multi-shot video -> video_storyboard then video_generate.
+      simple video request -> wali_video_generate, complex multi-shot video -> video_storyboard then wali_video_generate.
       Do not call image/video generation for image understanding, OCR, or analysis questions.
       If the user requests multiple explicit deliverables, call the corresponding tools in sequence.
 
